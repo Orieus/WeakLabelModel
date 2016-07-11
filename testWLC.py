@@ -68,20 +68,21 @@ def compute_sample_eff(Pe_ref, Pe_test, nq):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400    # Sample size
+ns = 800    # Sample size
 nf = 2      # Data dimension
+n_classes = 3 # Number of classes
 
 # Common parameters for all AL algorithms
 threshold = 0.5
 pool_size = 20  # No. labels requested at each pool of Active Learner
-n_sim = 50      # No. of simulation runs to average
+n_sim = 10      # No. of simulation runs to average
 
 # Type of AL algorithm
 type_AL = 'tourney'   # AL algorithm
 ts = 40               # Tourney size
 
 # Parameters of the classiffier fit method
-rho = float(1)/50    # Learning step
+rho = float(1)/2000    # Learning step
 n_it = 200   # Number of iterations
 
 #####################
@@ -95,13 +96,14 @@ print "======================="
 # ## PART I: Load data (samples and true labels)                             ##
 ###############################################################################
 
-n_classes = 2
-X, y = skd.make_classification(
-    n_samples=ns, n_features=nf, n_informative=2, n_redundant=0,
-    n_repeated=0, n_classes=n_classes, n_clusters_per_class=2, weights=None,
-    flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
-    shuffle=True, random_state=None)
-
+# X, y = skd.make_classification(
+#     n_samples=ns, n_features=nf, n_informative=3, n_redundant=0,
+#     n_repeated=0, n_classes=n_classes, n_clusters_per_class=2, weights=None,
+#     flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
+#     shuffle=True, random_state=None)
+X, y = skd.make_blobs(
+    n_samples=ns, n_features=nf, centers=n_classes, cluster_std=1.0, 
+    center_box=(-10.0, 10.0), shuffle=True, random_state=None)
 # Z = weaken(y, M)
 # V = virtuallabels(Z, method)
 
@@ -125,7 +127,6 @@ if nf == 2:
 # ## Select classifier
 
 # Create classifier object
-n_classes = 2
 # myClassifier = sklm.LogisticRegression(
 #     penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True,
 #     intercept_scaling=1, class_weight=None, random_state=None,
@@ -193,6 +194,7 @@ n_pools = len(nq)
 
 print 'Size of the feature matrix = ' + str(X.shape)
 print 'Number of labels = ' + str(ns)
+
 fig = plt.figure()
 h1, = plt.plot(nq, Pe_random, '--', marker='o', color=color1)
 h2, = plt.plot(nq, Pe_AL, '-', marker='.', color=color2)

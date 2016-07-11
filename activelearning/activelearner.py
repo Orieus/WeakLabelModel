@@ -582,12 +582,13 @@ class ActiveLearner(object):
 
         # ## Initialize aggregate results
         n_iter = int(math.ceil(float(n)/pool_size))
+
         Pe = np.zeros(n_iter)
         PeRaw = np.zeros(n_iter)
         PeW = np.zeros(n_iter)
 
-        print '        Promediando ' + str(n_sim) + \
-              ' simulaciones. Tiempo estimado...',
+        print '        Averaging ' + str(n_sim) + \
+              ' simulations. Estimated time...',
 
         # ## Loop over simulation runs
         for i in range(n_sim):
@@ -638,14 +639,15 @@ class ActiveLearner(object):
                 # First we train the classifier with all labels delivered by
                 # the AL algorithm.
                 myClassifier.fit(x_tr, y_tr)
-                s = myClassifier.predict_proba(x)
-                s = s[:, myClassifier.classes_[1] == 1]
+                f = myClassifier.predict_proba(x)
+                s = f[:, myClassifier.classes_[1] == 1]
 
                 # Then, we evaluate this classifier with all labels
                 # Note that training and test samples are being used in this
                 # error rate. This could be refined in later versions, but it
                 # is enough to check the behavior of the AL algorithms.
-                d = (np.array(s) >= th)
+                # d = (np.array(s) >= th)
+                d = np.argmax(f, axis=1)
                 TrueErrorRate[k] = (float(np.count_nonzero(true_labels != d)) /
                                     n)
 
