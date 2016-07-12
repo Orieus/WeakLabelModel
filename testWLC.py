@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 # My modules
 import activelearning.activelearner as al
 import wlc.WLclassifier as wlc
+import wlc.WLweakener as wlw
 
 
 def compute_sample_eff(Pe_ref, Pe_test, nq):
@@ -82,7 +83,7 @@ type_AL = 'tourney'   # AL algorithm
 ts = 40               # Tourney size
 
 # Parameters of the classiffier fit method
-rho = float(1)/2000    # Learning step
+rho = float(1)/1000    # Learning step
 n_it = 200   # Number of iterations
 
 #####################
@@ -104,15 +105,11 @@ print "======================="
 X, y = skd.make_blobs(
     n_samples=ns, n_features=nf, centers=n_classes, cluster_std=1.0, 
     center_box=(-10.0, 10.0), shuffle=True, random_state=None)
-# Z = weaken(y, M)
-# V = virtuallabels(Z, method)
 
-
-# This is an alternative to artificial set generation.
-# from sklearn.datasets.samples_generator import make_blobs
-# X, y = make_blobs(n_samples=ns, centers=2, random_state=0, cluster_std=0.60)
-# y = 2*y - 1   # Convert labels to +-1
-# X, y = generate_samples(ns, nf)
+# Generate weak labels
+M = wlw.generateM(n_classes, alpha=0.5, beta=0.5, method='independent_noisy')
+z = wlw.generateWeak(y, M, n_classes)
+v = wlw.generateVirtual(z, M, n_classes, method='independent_noisy')
 
 # If dimension is 2, we draw a scatterplot
 if nf == 2:
@@ -121,7 +118,7 @@ if nf == 2:
     plt.xlabel('$x_0$')
     plt.ylabel('$x_1$')
     plt.axis('equal')
-    plt.draw()
+    plt.show(block=False)
 
 ######################
 # ## Select classifier
@@ -132,6 +129,7 @@ if nf == 2:
 #     intercept_scaling=1, class_weight=None, random_state=None,
 #     solver='liblinear', max_iter=100, multi_class='ovr', verbose=0,
 #     warm_start=False, n_jobs=1)
+ipdb.set_trace()
 myClassifier = wlc.WeakLogisticRegression(n_classes, rho, n_it)
 
 # ## Report data used in the simulation

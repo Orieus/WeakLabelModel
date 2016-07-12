@@ -7,8 +7,11 @@ from numpy import binary_repr
 import sklearn.datasets as skd           # Needs version 0.14 or higher
 import sklearn.linear_model as sklm
 import matplotlib.pyplot as plt
+import sys
+import ipdb
 
-def generateWeak(y,M,c):
+
+def generateWeak(y, M, c):
     """
    Generate the set of weak labels z for n examples, given the ground truth 
    labels y for n examples, a mixing matrix M, and a number of classes c.
@@ -24,7 +27,7 @@ def generateWeak(y,M,c):
 
     return z
 
-def generateVirtual(z,M,c,method ='equal'): 
+def computeVirtual(z, c, method='equal', M=None): 
     """
    Generate the set of virtual labels v for n examples, given the weak labels 
    for n examples in decimal format, a mixing matrix M, the number of classes c, 
@@ -34,15 +37,16 @@ def generateVirtual(z,M,c,method ='equal'):
     z_bin = np.zeros((z.size,c))         # weak labels (binary)
     v = np.zeros((z.size,c))             # virtual labels 
 
-    for index,i in enumerate(z):         # From dec to bin
+    for index, i in enumerate(z):         # From dec to bin
 
         z_bin[index,:] = [int(x) for x in bin(int(i))[2:].zfill(c)]
     
-    if method == 'equal':                # weak and virtual are the same
+    if method == 'IPL' or method == 'supervised':  
 
-    	v = z_bin
+        # weak and virtual are the same
+    	pass
 
-    if method == 'independent_noisy':    # quasi-independent labels       
+    if method == 'quasy_IPL':    # quasi-independent labels       
         
         for index,i in enumerate(z_bin):
 
@@ -57,68 +61,107 @@ def generateVirtual(z,M,c,method ='equal'):
 
             else:
 
-            	z_bin[index,:] = np.array([None] * c)   
+            	z_bin[index,:] = np.array([None] * c)
+
+    v = z_bin           
 
     return v   
 
-def generateM(c,alpha=0.5,beta=0.5,gamma=0.5, method='supervised'):
+def computeM(c,alpha=0.5,beta=0.5,gamma=0.5, method='supervised'):
     """
    Generate a mixing matrix M, given the number of classes c.
     """
 
     if method == 'supervised':
 
-        M = np.array([[0.0, 0.0, 0.0], [1, 0, 0], [0, 1, 0], [0, 0, 1],
-        	[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])    	
+        M = np.array([[0.0, 0.0, 0.0], 
+                      [0,   0,   1],
+                      [0,   1,   0], 
+                      [0.0, 0.0, 0.0],
+                      [1,   0,   0], 
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0]])    	
 
-    if method == 'single_noisy':
+    elif method == 'noisy':
 
-        M = np.array([[0.0, 0.0, 0.0], [1-alpha, beta/2, gamma/2],
-    	    [alpha/2, 1-beta, gamma/2],[alpha/2, beta/2, 1-gamma],
-    	    [0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])
+        M = np.array([[0.0,     0.0,    0.0], 
+                      [alpha/2, beta/2, 1-gamma],
+    	              [alpha/2, 1-beta, gamma/2],
+    	              [0.0,     0.0,    0.0],
+                      [1-alpha, beta/2, gamma/2],
+                      [0.0,     0.0,    0.0],
+                      [0.0,     0.0,    0.0],
+                      [0.0,     0.0,    0.0]])
 
-    if method == 'independent_noisy':
+    elif method == 'IPL':
 
-        M = np.array([[0.0, 0.0, 0.0], [1-alpha-alpha**2, 0, 0],
-    	    [0, 1-beta-beta**2, 0],[0, 0, 1-gamma-gamma**2],
-    	    [alpha/2, beta/2, 0.0],[alpha/2, 0.0, gamma/2],
-    	    [0.0, beta/2, gamma/2],[alpha**2, beta**2, gamma**2]])        
+        M = np.array([
+                [0.0,              0.0,            0.0],
+                [0,                0,              1-gamma-gamma**2],
+    	        [0,                1-beta-beta**2, 0],
+                [0.0,              beta/2,         gamma/2],
+                [1-alpha-alpha**2, 0,              0],
+                [alpha/2,          0.0,            gamma/2],
+    	        [alpha/2,          beta/2,         0.0],
+                [alpha**2,         beta**2,        gamma**2]])        
+
+    elif method == 'quasi_IPL':
+
+        M = np.array([
+                [0.0,              0.0,            0.0],
+                [0,                0,              1-gamma-gamma**2],
+                [0,                1-beta-beta**2, 0],
+                [0.0,              beta/2,         gamma/2],
+                [1-alpha-alpha**2, 0,              0],
+                [alpha/2,          0.0,            gamma/2],
+                [alpha/2,          beta/2,         0.0],
+                [0,                0,              0]])        
+
+        M = M / np.sum(M, axis=0)
+
+    else:
+
+        print "Error: unknown method"
+        sys.exit()
 
     return M
 
-# ##############################################################################
-# ## MAIN ######################################################################
-# ##############################################################################
 
-############################
-# ## Configurable parameters
+def main():
 
-# Parameters for sklearn synthetic data
-ns = 100    # Sample size
-nf = 2      # Data dimension
-c = 3       # Number of classes 
+    # ##############################################################################
+    # ## MAIN ######################################################################
+    # ##############################################################################
 
+    ############################
+    # ## Configurable parameters
 
-#####################
-# ## A title to start
+    # Parameters for sklearn synthetic data
+    ns = 100    # Sample size
+    nf = 2      # Data dimension
+    c = 3       # Number of classes 
 
-print "======================="
-print "    Weak labels"
-print "======================="
+    #####################
+    # ## A title to start
 
-###############################################################################
-# ## PART I: Load data (samples and true labels)                             ##
-###############################################################################
+    print "======================="
+    print "    Weak labels"
+    print "======================="
 
-X, y = skd.make_classification(
-    n_samples=ns, n_features=nf, n_informative=2, n_redundant=0,
-    n_repeated=0, n_classes=c, n_clusters_per_class=1, weights=None,
-    flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
-    shuffle=True, random_state=None)
+    ###############################################################################
+    # ## PART I: Load data (samples and true labels)                             ##
+    ###############################################################################
 
+    X, y = skd.make_classification(
+        n_samples=ns, n_features=nf, n_informative=2, n_redundant=0,
+        n_repeated=0, n_classes=c, n_clusters_per_class=1, weights=None,
+        flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
+        shuffle=True, random_state=None)
 
-M = generateM(c,alpha=0.5,beta=0.5,method='independent_noisy')
-z = generateWeak(y,M,c)
-v = generateVirtual(z,M,c,method='independent_noisy')
+    M = computeM(c, alpha=0.5, beta=0.5,method='quasi_IPL')
+    z = generateWeak(y,M,c)
+    v = computeVirtual(z, c, method='quasi_IPL')
+
 
 

@@ -587,8 +587,7 @@ class ActiveLearner(object):
         PeRaw = np.zeros(n_iter)
         PeW = np.zeros(n_iter)
 
-        print '        Averaging ' + str(n_sim) + \
-              ' simulations. Estimated time...',
+        print '    Averaging {0} simulations. Estimated time...'.format(n_sim)
 
         # ## Loop over simulation runs
         for i in range(n_sim):
