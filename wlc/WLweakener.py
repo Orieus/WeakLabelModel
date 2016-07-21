@@ -11,6 +11,88 @@ import sys
 import ipdb
 
 
+def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
+    """
+    Generate a mixing matrix M, given the number of classes c.
+    """
+
+    if method == 'supervised':
+
+        M = np.array([[0.0, 0.0, 0.0], 
+                      [0,   0,   1],
+                      [0,   1,   0], 
+                      [0.0, 0.0, 0.0],
+                      [1,   0,   0], 
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0]])     
+
+    elif method == 'noisy':
+
+        M = np.array([[0.0,     0.0,    0.0], 
+                      [alpha/2, beta/2, 1-gamma],
+                      [alpha/2, 1-beta, gamma/2],
+                      [0.0,     0.0,    0.0],
+                      [1-alpha, beta/2, gamma/2],
+                      [0.0,     0.0,    0.0],
+                      [0.0,     0.0,    0.0],
+                      [0.0,     0.0,    0.0]])
+
+    elif method == 'IPL':
+
+        M = np.array([
+                [0.0,             0.0,           0.0],
+                [0,               0,             (1-gamma)**2],
+                [0,               (1-beta)**2,   0],
+                [0.0,             beta*(1-beta), gamma*(1-gamma)],
+                [(1-alpha)**2,    0,             0],
+                [alpha*(1-alpha), 0.0,           gamma*(1-gamma)],
+                [alpha*(1-alpha), beta*(1-beta), 0.0],
+                [alpha**2,        beta**2,       gamma**2]])        
+
+    elif method == 'IPL_old':
+
+        M = np.array([
+                [0.0,              0.0,            0.0],
+                [0,                0,              1-gamma-gamma**2],
+                [0,                1-beta-beta**2, 0],
+                [0.0,              beta/2,         gamma/2],
+                [1-alpha-alpha**2, 0,              0],
+                [alpha/2,          0.0,            gamma/2],
+                [alpha/2,          beta/2,         0.0],
+                [alpha**2,         beta**2,        gamma**2]])        
+
+    elif method == 'quasi_IPL':
+
+        # Convert beta to numpy array
+        if isinstance(beta, (list, tuple, np.ndarray)):
+            # Make sure beta is a numpy array
+            beta = np.array(beta)
+        else:
+            beta = np.array([beta] * c)
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+
+        # Compute mixing matrix row by row for the nonzero rows
+        for z in range(1, d-1):
+
+            z_bin = [int(b) for b in bin(z)[2:].zfill(c)]
+            modz = sum(z_bin)
+
+            M[z, :] = z_bin*(beta**(modz-1) * (1-beta)**(c-modz))
+
+        M = M / np.sum(M, axis=0)
+
+    else:
+
+        print "Error: unknown method"
+        sys.exit()
+
+    return M
+
+
 def generateWeak(y, M, c):
     """
    Generate the set of weak labels z for n examples, given the ground truth 
@@ -18,14 +100,15 @@ def generateWeak(y, M, c):
     """
 
     z = np.zeros(y.shape)                # Weak labels for all labels y (int)
-    d = 2**(c)                           # Number of weak labels
+    d = 2 ** c                           # Number of weak labels
     dec_labels = np.arange(d)            # Possible weak labels (int) 
 
-    for index,i in enumerate(y):
+    for index, i in enumerate(y):
 
-    	 z[index] = np.random.choice(dec_labels, 1, p=M[:,i]) 
+    	 z[index] = np.random.choice(dec_labels, 1, p=M[:, i]) 
 
     return z
+
 
 def computeVirtual(z, c, method='equal', M=None): 
     """
@@ -46,7 +129,7 @@ def computeVirtual(z, c, method='equal', M=None):
         # weak and virtual are the same
     	pass
 
-    if method == 'quasy_IPL':    # quasi-independent labels       
+    elif method == 'quasi_IPL':    # quasi-independent labels       
         
         for index,i in enumerate(z_bin):
 
@@ -55,7 +138,7 @@ def computeVirtual(z, c, method='equal', M=None):
             
             if not weak_pos == c:
 
-                weak_zero = (1-weak_pos)/(c-weak_pos)
+                weak_zero = float(1-weak_pos)/(c-weak_pos)
                 aux[aux == 0] = weak_zero
                 z_bin[index,:] = aux
 
@@ -63,69 +146,13 @@ def computeVirtual(z, c, method='equal', M=None):
 
             	z_bin[index,:] = np.array([None] * c)
 
+    else:
+
+        print 'Unknown method. Weak label taken as virtual'
+
     v = z_bin           
 
     return v   
-
-def computeM(c,alpha=0.5,beta=0.5,gamma=0.5, method='supervised'):
-    """
-   Generate a mixing matrix M, given the number of classes c.
-    """
-
-    if method == 'supervised':
-
-        M = np.array([[0.0, 0.0, 0.0], 
-                      [0,   0,   1],
-                      [0,   1,   0], 
-                      [0.0, 0.0, 0.0],
-                      [1,   0,   0], 
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0]])    	
-
-    elif method == 'noisy':
-
-        M = np.array([[0.0,     0.0,    0.0], 
-                      [alpha/2, beta/2, 1-gamma],
-    	              [alpha/2, 1-beta, gamma/2],
-    	              [0.0,     0.0,    0.0],
-                      [1-alpha, beta/2, gamma/2],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0]])
-
-    elif method == 'IPL':
-
-        M = np.array([
-                [0.0,              0.0,            0.0],
-                [0,                0,              1-gamma-gamma**2],
-    	        [0,                1-beta-beta**2, 0],
-                [0.0,              beta/2,         gamma/2],
-                [1-alpha-alpha**2, 0,              0],
-                [alpha/2,          0.0,            gamma/2],
-    	        [alpha/2,          beta/2,         0.0],
-                [alpha**2,         beta**2,        gamma**2]])        
-
-    elif method == 'quasi_IPL':
-
-        M = np.array([
-                [0.0,              0.0,            0.0],
-                [0,                0,              1-gamma-gamma**2],
-                [0,                1-beta-beta**2, 0],
-                [0.0,              beta/2,         gamma/2],
-                [1-alpha-alpha**2, 0,              0],
-                [alpha/2,          0.0,            gamma/2],
-                [alpha/2,          beta/2,         0.0],
-                [0,                0,              0]])        
-
-        M = M / np.sum(M, axis=0)
-
-    else:
-
-        print "Error: unknown method"
-        sys.exit()
-
-    return M
 
 
 def main():
