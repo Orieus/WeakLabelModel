@@ -3,10 +3,9 @@
 
 # External modules
 import numpy as np
-from numpy import binary_repr
+# from numpy import binary_repr
 import sklearn.datasets as skd           # Needs version 0.14 or higher
-import sklearn.linear_model as sklm
-import matplotlib.pyplot as plt
+# import sklearn.linear_model as sklm
 import sys
 import ipdb
 
@@ -18,18 +17,18 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     if method == 'supervised':
 
-        M = np.array([[0.0, 0.0, 0.0], 
+        M = np.array([[0.0, 0.0, 0.0],
                       [0,   0,   1],
-                      [0,   1,   0], 
+                      [0,   1,   0],
                       [0.0, 0.0, 0.0],
-                      [1,   0,   0], 
+                      [1,   0,   0],
                       [0.0, 0.0, 0.0],
                       [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0]])     
+                      [0.0, 0.0, 0.0]])
 
     elif method == 'noisy':
 
-        M = np.array([[0.0,     0.0,    0.0], 
+        M = np.array([[0.0,     0.0,    0.0],
                       [alpha/2, beta/2, 1-gamma],
                       [alpha/2, 1-beta, gamma/2],
                       [0.0,     0.0,    0.0],
@@ -48,7 +47,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
                 [(1-alpha)**2,    0,             0],
                 [alpha*(1-alpha), 0.0,           gamma*(1-gamma)],
                 [alpha*(1-alpha), beta*(1-beta), 0.0],
-                [alpha**2,        beta**2,       gamma**2]])        
+                [alpha**2,        beta**2,       gamma**2]])
 
     elif method == 'IPL_old':
 
@@ -60,7 +59,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
                 [1-alpha-alpha**2, 0,              0],
                 [alpha/2,          0.0,            gamma/2],
                 [alpha/2,          beta/2,         0.0],
-                [alpha**2,         beta**2,        gamma**2]])        
+                [alpha**2,         beta**2,        gamma**2]])
 
     elif method == 'quasi_IPL':
 
@@ -95,71 +94,70 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
 def generateWeak(y, M, c):
     """
-   Generate the set of weak labels z for n examples, given the ground truth 
+   Generate the set of weak labels z for n examples, given the ground truth
    labels y for n examples, a mixing matrix M, and a number of classes c.
     """
 
-    z = np.zeros(y.shape)                # Weak labels for all labels y (int)
-    d = 2 ** c                           # Number of weak labels
-    dec_labels = np.arange(d)            # Possible weak labels (int) 
+    z = np.zeros(y.shape)           # Weak labels for all labels y (int)
+    d = 2 ** c                      # Number of weak labels
+    dec_labels = np.arange(d)       # Possible weak labels (int)
 
     for index, i in enumerate(y):
-
-    	 z[index] = np.random.choice(dec_labels, 1, p=M[:, i]) 
+        z[index] = np.random.choice(dec_labels, 1, p=M[:, i])
 
     return z
 
 
-def computeVirtual(z, c, method='equal', M=None): 
+def computeVirtual(z, c, method='equal', M=None):
     """
-   Generate the set of virtual labels v for n examples, given the weak labels 
-   for n examples in decimal format, a mixing matrix M, the number of classes c, 
-   and a method.
+   Generate the set of virtual labels v for n examples, given the weak labels
+   for n examples in decimal format, a mixing matrix M, the number of classes
+   c, and a method.
     """
-    
-    z_bin = np.zeros((z.size,c))         # weak labels (binary)
-    v = np.zeros((z.size,c))             # virtual labels 
+
+    z_bin = np.zeros((z.size, c))         # weak labels (binary)
+    v = np.zeros((z.size, c))             # virtual labels
 
     for index, i in enumerate(z):         # From dec to bin
 
-        z_bin[index,:] = [int(x) for x in bin(int(i))[2:].zfill(c)]
-    
-    if method == 'IPL' or method == 'supervised':  
+        z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
+
+    if method == 'IPL' or method == 'supervised':
 
         # weak and virtual are the same
-    	pass
+        pass
 
-    elif method == 'quasi_IPL':    # quasi-independent labels       
-        
-        for index,i in enumerate(z_bin):
+    elif method == 'quasi_IPL':    # quasi-independent labels
 
-            aux = z_bin[index,:]
+        for index, i in enumerate(z_bin):
+
+            aux = z_bin[index, :]
             weak_pos = np.sum(aux)
-            
+
             if not weak_pos == c:
 
                 weak_zero = float(1-weak_pos)/(c-weak_pos)
                 aux[aux == 0] = weak_zero
-                z_bin[index,:] = aux
+                z_bin[index, :] = aux
 
             else:
 
-            	z_bin[index,:] = np.array([None] * c)
+                z_bin[index, :] = np.array([None] * c)
 
     else:
 
         print 'Unknown method. Weak label taken as virtual'
 
-    v = z_bin           
+    v = z_bin
 
-    return v   
+    return v
 
 
 def main():
 
-    # ##############################################################################
-    # ## MAIN ######################################################################
-    # ##############################################################################
+    # #########################################################################
+    # ## MAIN #################################################################
+    # #########################################################################
 
     ############################
     # ## Configurable parameters
@@ -167,7 +165,7 @@ def main():
     # Parameters for sklearn synthetic data
     ns = 100    # Sample size
     nf = 2      # Data dimension
-    c = 3       # Number of classes 
+    c = 3       # Number of classes
 
     #####################
     # ## A title to start
@@ -176,9 +174,9 @@ def main():
     print "    Weak labels"
     print "======================="
 
-    ###############################################################################
-    # ## PART I: Load data (samples and true labels)                             ##
-    ###############################################################################
+    ###########################################################################
+    # ## PART I: Load data (samples and true labels)                         ##
+    ###########################################################################
 
     X, y = skd.make_classification(
         n_samples=ns, n_features=nf, n_informative=2, n_redundant=0,
@@ -186,9 +184,7 @@ def main():
         flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
         shuffle=True, random_state=None)
 
-    M = computeM(c, alpha=0.5, beta=0.5,method='quasi_IPL')
-    z = generateWeak(y,M,c)
+    M = computeM(c, alpha=0.5, beta=0.5, method='quasi_IPL')
+    z = generateWeak(y, M, c)
     v = computeVirtual(z, c, method='quasi_IPL')
-
-
 
