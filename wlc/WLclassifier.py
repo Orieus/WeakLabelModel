@@ -10,10 +10,11 @@ import numpy as np
 import scipy as sp
 import ipdb
 
+
 class WeakLogisticRegression(object):
 
-    def __init__(self, n_classes=2, method="WL", optimizer='GD',
-                 params=None, sound='off'):
+    def __init__(self, n_classes=2, method="VLL", optimizer='GD',
+                 params={}, sound='off'):
 
         """
         Only a name is needed when the object is created
@@ -25,6 +26,10 @@ class WeakLogisticRegression(object):
         self.optimizer = optimizer
         self.n_classes = n_classes
         self.classes_ = range(n_classes)
+
+        # Set default value of parameter 'alpha' if it does not exist
+        if self.method == "VLL" and 'alpha' not in self.params:
+            self.params['alpha'] = 0
 
     def softmax(self, x):
         """
@@ -99,6 +104,33 @@ class WeakLogisticRegression(object):
 
     def logLoss(self, w, X, T):
 
+        """ Compute a regularized log loss (cross-entropy) for samples in X
+            virtual labels in T and parameters w. The regularization parameter
+            is taken from the object attributes.
+            It assumes a multi-class softmax classifier.
+            This method implements two different log-losses, that are specified
+            in the object's attribute self.method:
+                'OSL' :Optimistic Superset Loss. It assumes that the true label
+                       is the nonzero weak label with highest posterior
+                       probability given the model.
+                'VLL' :Virtual Labels Loss.
+            The regularization parameter is set in set.params['alpha']
+
+            Args:
+                :w:  1-D nympy array. It is a flattened versio of the weigh
+                     matrix of the multiclass softmax. This 1-D arrangement
+                     is required by the scipy optimizer that will use this
+                     method.
+                :X:  Input data. An (NxD) matrix of N samples with dimension D
+                :T:  Target class. An (NxC) array of target vectors.
+                     The meaning and format of each target vector t depends
+                     on the selected log-loss version:
+                     - 'OSL': t is a binary vector.
+                     - 'VLL': t is a virtual label vector
+            Returns:
+                :L:  Log-loss
+        """
+
         n_dim = X.shape[1]
         W2 = w.reshape((n_dim, self.n_classes))
         logp = self.logsoftmax(np.dot(X, W2))
@@ -112,13 +144,46 @@ class WeakLogisticRegression(object):
             # Bias: This term is usually zero for proper losses, but may be
             # nonzero for RC or CC weak losses
             # Note, also, that the bias could be computed out of this function.
-            # bias = np.sum(1 - np.sum(T, axis=1))
-            # L = -np.sum(T*logp) + bias
-            L = -np.sum(T*logp)
+            bias = np.sum(1 - np.sum(T, axis=1))
+            L = -np.sum(T*logp) + bias + self.params['alpha']*np.sum(w**2)/2
+            # L = -np.sum(T*logp)
+
+        if L < 0:
+            print "Oooops, negative log loss. ",
+            print "You should user a larger parameter alpha"
+            print "L = {0}".format(L)
+            ipdb.set_trace()
 
         return L
 
     def gradLogLoss(self, w, X, T):
+
+        """ Compute the gradient of the regularized log loss (cross-entropy)
+            for samples in X, virtual labels in T and parameters w.
+            The regularization parameter is taken from the object attributes.
+            It assumes a multi-class softmax classifier.
+            This method implements gradients for two different log-losses, that
+            are specified in the object's attribute self.method:
+                'OSL' :Optimistic Superset Loss. It assumes that the true label
+                       is the nonzero weak label with highest posterior
+                       probability given the model.
+                'VLL' :Virtual Labels Loss.
+            The regularization parameter is set in set.params['alpha']
+
+            Args:
+                :w:  1-D nympy array. It is a flattened versio of the weigh
+                     matrix of the multiclass softmax. This 1-D arrangement
+                     is required by the scipy optimizer that will use this
+                     method.
+                :X:  Input data. An (NxD) matrix of N samples with dimension D
+                :T:  Target class. An (NxC) array of target vectors.
+                     The meaning and format of each target vector t depends
+                     on the selected log-loss version:
+                     - 'OSL': t is a binary vector.
+                     - 'VLL': t is a virtual label vector
+            Returns:
+                :G:  Gradient of the Log-loss
+        """
 
         n_dim = X.shape[1]
         W2 = w.reshape((n_dim, self.n_classes))
@@ -129,10 +194,9 @@ class WeakLogisticRegression(object):
             G = np.dot(X.T, p - D)
 
         else:
-            # Update weights
-            # bias = np.sum(T, axis=1, keepdims=True)
-            # G = np.dot(X.T, p*bias - T)
-            G = np.dot(X.T, p - T)
+            bias = np.sum(T, axis=1, keepdims=True)
+            G = np.dot(X.T, p*bias - T) - self.params['alpha']*W2
+            # G = np.dot(X.T, p - T)
 
         return G.reshape((n_dim*self.n_classes))
 
@@ -154,45 +218,7 @@ class WeakLogisticRegression(object):
 
             G = self.gradLogLoss(w1, X, T).reshape((n_dim, self.n_classes))
 
-            # if self.method == 'VLL':
-            #     print self.method
-            #   error = sp.optimize.check_grad(self.logLoss, self.gradLogLoss,
-            #                                    w1, X, T)
-            #     print error
-            # ipdb.set_trace()
-            # G2 = sp.optimize.approx_fprime(
-            #  w1, self.logLoss, 1e-10, X, T).reshape((n_dim, self.n_classes))
-            # print " "
-            # print error
-            # print G
-            # print G2
             W -= self.params['rho']*G
-
-        return W
-
-    def gd2(self, X, T):
-
-        """ Trains a logistic regression classifier by a gradient descent
-            method
-        """
-
-        # Initialize variables
-        n_dim = X.shape[1]
-        W = np.random.randn(n_dim, self.n_classes)
-
-        # Running the gradient descent algorithm
-        for n in range(self.params['n_it']):
-
-            # Compute posterior probabilities for weight w
-            p = self.softmax(np.dot(X, W))
-
-            if self.method == 'OSL':
-                D = self.hardmax(T*p)
-                W += self.params['rho']*np.dot(X.T, D - p)
-
-            else:
-                # Update weights
-                W += self.params['rho']*np.dot(X.T, T - p)
 
         return W
 
@@ -232,20 +258,27 @@ class WeakLogisticRegression(object):
         # Optimization
         if self.optimizer == 'GD':
             self.W = self.gd(X, T)
-        elif self.optimizer == 'GD2':
-            self.W = self.gd2(X, T)
         else:
-            w0 = 0.00001*np.random.randn(X.shape[1]*self.n_classes)
+            w0 = 1*np.random.randn(X.shape[1]*self.n_classes)
             res = sp.optimize.minimize(
                 self.logLoss, w0, args=(X, T), method=self.optimizer,
                 jac=self.gradLogLoss, hess=None, hessp=None, bounds=None,
-                constraints=(), tol=None, callback=None, options=None)
+                constraints=(), tol=None, callback=None,
+                options={'disp': False, 'gtol': 1e-20,
+                         'eps': 1.4901161193847656e-08, 'return_all': False,
+                         'maxiter': None, 'norm': np.inf})
+            #    options=None)
             self.W = res.x.reshape((self.n_dim, self.n_classes))
-            print res.success
-            print res.status
-            print res.message
-            # if self.method == 'VLL':
-            #     ipdb.set_trace()
+
+            if res.status != 0:
+                print "{0}-{1}: Status {2}. {3}. {4}".format(
+                    self.method, self.optimizer, res.status, res.success,
+                    res.message)
+
+            # wtest = res.x
+            # error = sp.optimize.check_grad(
+            #     self.logLoss, self.gradLogLoss, wtest, X, T)
+            # print "Check-grad error = {0}".format(error)
 
         return self    # w, nll_tr
 

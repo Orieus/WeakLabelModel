@@ -10,6 +10,8 @@ import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
 import sklearn.cross_validation as skcv
+from sklearn.preprocessing import StandardScaler
+import matplotlib
 import matplotlib.pyplot as plt
 import time
 import ipdb
@@ -71,16 +73,15 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 100        # Sample size
-nf = 2          # Data dimension
+ns = 400        # Sample size
+nf = 2         # Data dimension
 n_classes = 5   # Number of classes
 
 # Common parameters for all AL algorithms
-threshold = 0.5
-n_sim = 20      # No. of simulation runs to average
+n_sim = 10      # No. of simulation runs to average
 
 # Parameters of the classiffier fit method
-rho = float(1)/500    # Learning step
+rho = float(1)/5000    # Learning step
 n_it = 2*ns           # Number of iterations
 
 # Parameters of the weak label model
@@ -109,6 +110,8 @@ print "======================================"
 X, y = skd.make_blobs(
     n_samples=ns, n_features=nf, centers=n_classes, cluster_std=1.0,
     center_box=(-10.0, 10.0), shuffle=True, random_state=None)
+X = StandardScaler().fit_transform(X)
+
 
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
@@ -117,9 +120,7 @@ z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
 
 # Convert z to a list of binary lists (this is for the OSL alg)
-z_bin = np.zeros((ns, n_classes))
-for i, zi in enumerate(z):         # From dec to bin
-    z_bin[i, :] = [int(x) for x in bin(int(zi))[2:].zfill(n_classes)]
+z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 
 # If dimension is 2, we draw a scatterplot
 if nf == 2:
@@ -138,7 +139,7 @@ if nf == 2:
 print '----------------'
 print 'Simulation data:'
 print '    Sample size: n = {0}'.format(ns)
-print '    Data dimensión = {0}'.format(X.shape[1])
+print '    Data dimension = {0}'.format(X.shape[1])
 
 ############################################################################
 # ## PART II: AL algorithm analysis                                      ###
@@ -148,6 +149,7 @@ print '----------------------------'
 print 'Weak Label Analysis'
 
 wLR = {}
+title = {}
 Pe_tr = {}
 Pe_cv = {}
 Pe_tr_mean = {}
@@ -159,107 +161,101 @@ tag_list = []
 # Supervised learning
 tag = 'Supervised'
 tag_list.append(tag)
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
+title[tag] = 'Learning from clean labels:'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
 
-print 'Learning from clean labels:'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
+# ##########################
+# Supervised learning (BFGS)
+tag = 'Superv-BFGS'
+tag_list.append(tag)
+title[tag] = 'Learning from clean labels with BFGS:'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+                                      optimizer='BFGS', params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
 
 # ##################################
 # Optimistic Superset Learning (OSL)
 tag = 'OSL'
 tag_list.append(tag)
+title[tag] = 'Optimistic Superset Loss (OSL)'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
-
-print 'Optimistic Superset Loss (OSL)'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
 
 # ############################################
 # Optimistic Superset Learning (OSL) with BFGS
 tag = 'OSL-BFGS'
 tag_list.append(tag)
+title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
-
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
-
-print 'Optimistic Superset Loss (OSL) with BFGS'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLL-GD'
 tag_list.append(tag)
+title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
 
-print 'Virtual Label Learning (VLL) with Gradient Descent'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
+# ###################################################
+# Virtual Label Learning with BFGS and regularization
+tag = 'VLL-BFGS'
+tag_list.append(tag)
+title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
+params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+                                      optimizer='BFGS', params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
-tag = 'VLL-GD2'
+tag = 'VLLc-GD'
 tag_list.append(tag)
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD2',
+title[tag] = 'CC-VLL with Gradient Descent'
+params = {'rho': rho, 'n_it': n_it}
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
-
-print 'Virtual Label Learning (VLL) with GD2'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
-
-
-# ################################
-# Virtual Label Learning with BFGS
-tag = 'VLL-BFGS'
+# ############################################
+# Virtual Label Learning with Gradient Descent
+tag = 'VLLc-BFGS'
 tag_list.append(tag)
+title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
-Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
-Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
+# ############
+# Print results.
 
-print 'Virtual Label Learning (VLL) with BFGS'
-print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
+for tag in tag_list:
+    Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
+    Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
 
+    print title[tag]
+    print '* Average train error = {0}'.format(Pe_tr_mean[tag])
+    print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
 
 
 # #################
 # # ## Plot results
 
-# font = {'family': 'Verdana',
-#         'weight': 'regular',
-#         'size': 10}
-# # matplotlib.rc('font', **font)
+# Config plots.
+font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
+matplotlib.rc('font', **font)
 
 # Plot error barplots.
 plt.figure()
 for i, tag in enumerate(tag_list):
     plt.scatter([i + 1]*n_sim, Pe_cv[tag], c=[i]*n_sim, s=20, cmap='copper')
 
-plt.xticks(range(1, 1 + len(tag_list)), tag_list)
+plt.xticks(range(1, 1 + len(tag_list)), tag_list, rotation='45')
 plt.show(block=False)
 
 # Plot decision boundaries.
