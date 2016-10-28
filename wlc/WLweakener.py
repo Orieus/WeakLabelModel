@@ -108,11 +108,30 @@ def generateWeak(y, M, c):
     return z
 
 
-def computeVirtual(z, c, method='equal', M=None):
+def computeVirtual(z, c, method='IPL', M=None):
     """
-   Generate the set of virtual labels v for n examples, given the weak labels
-   for n examples in decimal format, a mixing matrix M, the number of classes
-   c, and a method.
+    Generate the set of virtual labels v for n examples, given the weak labels
+    for n examples in decimal format, a mixing matrix M, the number of classes
+    c, and a method.
+
+    Args:
+        z       :List of weak labels. Each weak label is an integer whose
+                 binary representation encondes the observed weak labels
+        c       :Number of classes. All components of z must be smaller than
+                 2**c
+        method  :Method applied to compute the virtual label vector v.
+                 Available methods are:
+                 - 'IPL'  : Independet Partial Labels. Takes virtual label
+                            vectors equal to the binary representations of the
+                            the weak labels in z
+                 - 'supervised': Equivalent to IPL
+                 - 'Mproper'   : Computes virtual labels for a M-proper loss.
+                 - 'MCC'       : Computes virtual labels for a M-CC loss
+                                 (Not available yet)
+        M       :Mixing matrix. Only for methods 'Mproper' and 'MCC'
+
+    Returns:
+        v
     """
 
     z_bin = np.zeros((z.size, c))         # weak labels (binary)
@@ -143,6 +162,16 @@ def computeVirtual(z, c, method='equal', M=None):
             else:
 
                 z_bin[index, :] = np.array([None] * c)
+
+    elif method == 'Mproper':
+
+        # Compute the virtual label matrix
+        Y = np.linalg.pinv(M)
+
+        # Compute the virtual label.
+        for index, i in enumerate(z):
+            # The virtual label for weak label i is the i-th row in Y
+            z_bin[index, :] = Y[:, int(i)]
 
     else:
 

@@ -89,6 +89,7 @@ alpha = 0.2
 beta = 0.2
 gamma = 0.2
 method = 'quasi_IPL'
+method2 = 'Mproper'
 # method = 'quasi_IPL_old'
 
 #####################
@@ -112,12 +113,12 @@ X, y = skd.make_blobs(
     center_box=(-10.0, 10.0), shuffle=True, random_state=None)
 X = StandardScaler().fit_transform(X)
 
-
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
                  method=method)
 z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
+v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
 
 # Convert z to a list of binary lists (this is for the OSL alg)
 z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
@@ -166,23 +167,23 @@ wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
 
-# ##########################
-# Supervised learning (BFGS)
-tag = 'Superv-BFGS'
-tag_list.append(tag)
-title[tag] = 'Learning from clean labels with BFGS:'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-                                      optimizer='BFGS', params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+# # ##########################
+# # Supervised learning (BFGS)
+# tag = 'Superv-BFGS'
+# tag_list.append(tag)
+# title[tag] = 'Learning from clean labels with BFGS:'
+# wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+#                                       optimizer='BFGS', params=params)
+# Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
 
-# ##################################
-# Optimistic Superset Learning (OSL)
-tag = 'OSL'
-tag_list.append(tag)
-title[tag] = 'Optimistic Superset Loss (OSL)'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-                                      params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+# # ##################################
+# # Optimistic Superset Learning (OSL)
+# tag = 'OSL'
+# tag_list.append(tag)
+# title[tag] = 'Optimistic Superset Loss (OSL)'
+# wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
+#                                       params=params)
+# Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
 # ############################################
 # Optimistic Superset Learning (OSL) with BFGS
@@ -192,6 +193,15 @@ title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+
+# # ############################################
+# # Virtual Label Learning with Gradient Descent
+tag = 'Mproper-GD'
+tag_list.append(tag)
+title[tag] = 'M-proper loss with Gradient Descent'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
+                                       params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
@@ -233,7 +243,6 @@ Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
 # ############
 # Print results.
-
 for tag in tag_list:
     Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
     Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
@@ -241,7 +250,6 @@ for tag in tag_list:
     print title[tag]
     print '* Average train error = {0}'.format(Pe_tr_mean[tag])
     print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
-
 
 # #################
 # # ## Plot results
@@ -280,7 +288,6 @@ plt.show(block=False)
 #     axarr[idx[0], idx[1]].set_title(tt)
 
 # plt.show()
-
 
 ipdb.set_trace()
 
