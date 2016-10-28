@@ -45,8 +45,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
         f = classif.predict_proba(X)
 
         # Then, we evaluate this classifier with all labels
-        # Note that training and test samples are being used in this
-        # error rate.
+        # Note that training and test samples are being used in this error rate
         d = np.argmax(f, axis=1)
         Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
 
@@ -75,7 +74,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
 # Parameters for sklearn synthetic data
 ns = 400        # Sample size
 nf = 2         # Data dimension
-n_classes = 5   # Number of classes
+n_classes = 20   # Number of classes
 
 # Common parameters for all AL algorithms
 n_sim = 10      # No. of simulation runs to average
@@ -109,7 +108,7 @@ print "======================================"
 #     flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
 #     shuffle=True, random_state=None)
 X, y = skd.make_blobs(
-    n_samples=ns, n_features=nf, centers=n_classes, cluster_std=1.0,
+    n_samples=ns, n_features=nf, centers=n_classes, cluster_std=2.0,
     center_box=(-10.0, 10.0), shuffle=True, random_state=None)
 X = StandardScaler().fit_transform(X)
 
@@ -119,6 +118,8 @@ M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
 z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
 v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
+
+ipdb.set_trace()
 
 # Convert z to a list of binary lists (this is for the OSL alg)
 z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
@@ -167,23 +168,23 @@ wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
 
-# # ##########################
-# # Supervised learning (BFGS)
-# tag = 'Superv-BFGS'
-# tag_list.append(tag)
-# title[tag] = 'Learning from clean labels with BFGS:'
-# wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-#                                       optimizer='BFGS', params=params)
-# Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+# ##########################
+# Supervised learning (BFGS)
+tag = 'Superv-BFGS'
+tag_list.append(tag)
+title[tag] = 'Learning from clean labels with BFGS:'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+                                      optimizer='BFGS', params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
 
-# # ##################################
-# # Optimistic Superset Learning (OSL)
-# tag = 'OSL'
-# tag_list.append(tag)
-# title[tag] = 'Optimistic Superset Loss (OSL)'
-# wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-#                                       params=params)
-# Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+# ##################################
+# Optimistic Superset Learning (OSL)
+tag = 'OSL'
+tag_list.append(tag)
+title[tag] = 'Optimistic Superset Loss (OSL)'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
+                                      params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
 # ############################################
 # Optimistic Superset Learning (OSL) with BFGS
@@ -195,12 +196,21 @@ wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
 
 # # ############################################
-# # Virtual Label Learning with Gradient Descent
+# # Add hoc M-proper loss with Gradient Descent
 tag = 'Mproper-GD'
 tag_list.append(tag)
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
-                                       params=params)
+                                      params=params)
+Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
+
+# # ############################################
+# # Add hoc M-proper loss with BFGS
+tag = 'Mproper-BFGS'
+tag_list.append(tag)
+title[tag] = 'M-proper loss with Gradient Descent'
+wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+                                      optimizer='BFGS', params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
 
 # ############################################

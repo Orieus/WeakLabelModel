@@ -30,6 +30,8 @@ class WeakLogisticRegression(object):
         # Set default value of parameter 'alpha' if it does not exist
         if self.method == "VLL" and 'alpha' not in self.params:
             self.params['alpha'] = 0
+        if self.method == "Mproper" and 'alpha' not in self.params:
+            self.params['alpha'] = 0
 
     def softmax(self, x):
         """
