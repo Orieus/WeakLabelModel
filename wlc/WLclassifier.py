@@ -154,7 +154,6 @@ class WeakLogisticRegression(object):
             print "Oooops, negative log loss. ",
             print "You should user a larger parameter alpha"
             print "L = {0}".format(L)
-            ipdb.set_trace()
 
         return L
 
