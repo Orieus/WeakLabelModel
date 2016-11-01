@@ -107,7 +107,7 @@ def getDataset(name):
     elif name == 'covtype':
         dataset = skd.fetch_covtype()
         X = dataset.data
-        y = dataset.target
+        y = dataset.target - 1
 
     return X, y
 
@@ -141,8 +141,8 @@ inner_cv = skms.KFold(n_splits=5)
 out_path = '../output/'
 
 # Dataset list
-datasetNames = ['blobs', 'blobs2', 'iris']
-# datasetNames = ['blobs', 'blobs2', 'iris', 'digits', 'covtype']
+# datasetNames = ['blobs', 'blobs2', 'iris']
+datasetNames = ['blobs', 'blobs2', 'iris', 'digits', 'covtype']
 
 #####################
 # ## A title to start
