@@ -33,6 +33,7 @@ class WeakLogisticRegression(object):
         if self.method == "Mproper" and 'alpha' not in self.params:
             self.params['alpha'] = 0
 
+
     def softmax(self, x):
         """
         Computes the softmax transformation
@@ -271,10 +272,10 @@ class WeakLogisticRegression(object):
             #    options=None)
             self.W = res.x.reshape((self.n_dim, self.n_classes))
 
-            if res.status != 0:
-                print "{0}-{1}: Status {2}. {3}. {4}".format(
-                    self.method, self.optimizer, res.status, res.success,
-                    res.message)
+            # if res.status != 0:
+            #     print "{0}-{1}: Status {2}. {3}. {4}".format(
+            #         self.method, self.optimizer, res.status, res.success,
+            #         res.message)
 
             # wtest = res.x
             # error = sp.optimize.check_grad(

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" This code evaluates logistig regression with weak labels
-    Author: JCS, June, 2016
+""" This code evaluates logistig regression with weak labels.
+    It compares different algorithms for different datasets.
+
+    Author: JCS, Oct, 2016
 """
 
 # External modules
@@ -19,97 +21,8 @@ import ipdb
 # My modules
 import wlc.WLclassifier as wlc
 import wlc.WLweakener as wlw
-
-
-def evaluateClassif(classif, X, y, v=None, n_sim=1):
-
-    # Default v
-    if v is None:
-        v = y
-
-    # ## Initialize aggregate results
-    Pe_tr = [0] * n_sim
-    Pe_cv = [0] * n_sim
-
-    print '    Averaging {0} simulations. Estimated time...'.format(n_sim),
-
-    # ## Loop over simulation runs
-    for i in xrange(n_sim):
-
-        if i == 0:
-            start = time.clock()
-
-        # ########################
-        # Ground truth evaluation:
-        classif.fit(X, v)
-        f = classif.predict_proba(X)
-
-        # Then, we evaluate this classifier with all labels
-        # Note that training and test samples are being used in this error rate
-        d = np.argmax(f, axis=1)
-        Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
-
-        # ##############
-        # Self evaluation.
-        # First, we compute leave-one-out predictions
-        n_folds = min(10, ns)
-        preds = skms.cross_val_predict(classif, X, v, cv=n_folds, verbose=0)
-
-        # Estimate error rates:
-        Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
-
-        if i == 0:
-            print '{0} segundos'.format((time.clock() - start) * n_sim)
-
-    return Pe_tr, Pe_cv
-
-
-def getDataset(name):
-
-    # This method provides the feature matrix (X) and the target variables (y)
-    # of different datasets for multiclass classification
-    # Args:
-    #    name: A tag name for a specific dataset
-    #
-    # Returns:
-    #    X:    Input data matrix
-    #    y:    Target array.
-
-    
-    if name == 'hypercube':
-        X, y = skd.make_classification(
-            n_samples=400, n_features=40, n_informative=40, 
-            n_redundant=0, n_repeated=0, n_classes=4, 
-            n_clusters_per_class=2,
-            weights=None, flip_y=0.0001, class_sep=1.0, hypercube=True,
-            shift=0.0, scale=1.0, shuffle=True, random_state=None)
-
-    elif name == 'blobs':
-        X, y = skd.make_blobs(
-            n_samples=400, n_features=2, centers=20, cluster_std=2,
-            center_box=(-10.0, 10.0), shuffle=True, random_state=None)
-
-    elif name == 'blobs2':
-        X, y = skd.make_blobs(
-            n_samples=400, n_features=4, centers=10, cluster_std=1,
-            center_box=(-10.0, 10.0), shuffle=True, random_state=None)
-
-    elif name == 'iris':
-        dataset = skd.load_iris()
-        X = dataset.data
-        y = dataset.target
-
-    elif name == 'digits':
-        dataset = skd.load_digits()
-        X = dataset.data
-        y = dataset.target
-
-    elif name == 'covtype':
-        dataset = skd.fetch_covtype()
-        X = dataset.data
-        y = dataset.target - 1
-
-    return X, y
+from wlc.WLanalyzer import evaluateClassif
+from dataloader.dataLoad import getDataset
 
 
 ###############################################################################
@@ -127,7 +40,7 @@ rho = float(1)/5000    # Learning step
 
 # Parameters of the weak label model
 alpha = 0.8
-beta = 0.2
+beta = 0.5
 gamma = 0.2
 
 # Optimization algorithm to be used for all classifiers
@@ -142,7 +55,7 @@ out_path = '../output/'
 
 # Dataset list
 # datasetNames = ['blobs', 'blobs2', 'iris']
-datasetNames = ['blobs', 'blobs2', 'iris', 'digits', 'covtype']
+datasetNames = ['blobs', 'blobs2', 'iris', 'digits']
 
 #####################
 # ## A title to start
@@ -175,7 +88,7 @@ tag_list = []
 # ########################
 # Dictionary of algorithms
 
-grid = {'rho': [rho*r for r in[1, 2]]}
+grid = {'rho': [rho*r for r in[1, 10]]}
 
 # Supervised learning
 tag = 'Supervised'
@@ -257,8 +170,11 @@ for dname in datasetNames:
     Pe_cv_pair[dname] = {}
 
     # Parameter values for the logistic regression
-    n_it = 2*ns
-    params = {'rho': rho, 'n_it': n_it}
+    n_it = 4*ns
+    if optim == 'GD':
+        params = {'rho': rho, 'n_it': n_it}
+    else:
+        params = {'alpha': 100}
 
     for tag in tag_list:
 
