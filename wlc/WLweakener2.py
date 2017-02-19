@@ -10,56 +10,43 @@ import sys
 # import ipdb
 
 
-def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
+def computeM(c, beta=0.5, method='supervised'):
     """
     Generate a mixing matrix M, given the number of classes c.
     """
 
     if method == 'supervised':
 
-        M = np.array([[0.0, 0.0, 0.0],
-                      [0,   0,   1],
-                      [0,   1,   0],
-                      [0.0, 0.0, 0.0],
-                      [1,   0,   0],
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0]])
+        M = np.eye(c)
 
     elif method == 'noisy':
 
-        M = np.array([[0.0,     0.0,    0.0],
-                      [alpha/2, beta/2, 1-gamma],
-                      [alpha/2, 1-beta, gamma/2],
-                      [0.0,     0.0,    0.0],
-                      [1-alpha, beta/2, gamma/2],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0]])
+        M = (np.eye(c) * (1-beta-beta/(c-1)) +
+             np.ones((c, c)) * beta/(c-1))
 
-    elif method == 'IPL':
+    # elif method == 'IPL':
 
-        M = np.array([
-                [0.0,             0.0,           0.0],
-                [0,               0,             (1-gamma)**2],
-                [0,               (1-beta)**2,   0],
-                [0.0,             beta*(1-beta), gamma*(1-gamma)],
-                [(1-alpha)**2,    0,             0],
-                [alpha*(1-alpha), 0.0,           gamma*(1-gamma)],
-                [alpha*(1-alpha), beta*(1-beta), 0.0],
-                [alpha**2,        beta**2,       gamma**2]])
+    #     M = np.array([
+    #             [0.0,             0.0,           0.0],
+    #             [0,               0,             (1-gamma)**2],
+    #             [0,               (1-beta)**2,   0],
+    #             [0.0,             beta*(1-beta), gamma*(1-gamma)],
+    #             [(1-alpha)**2,    0,             0],
+    #             [alpha*(1-alpha), 0.0,           gamma*(1-gamma)],
+    #             [alpha*(1-alpha), beta*(1-beta), 0.0],
+    #             [alpha**2,        beta**2,       gamma**2]])
 
-    elif method == 'IPL_old':
+    # elif method == 'IPL_old':
 
-        M = np.array([
-                [0.0,              0.0,            0.0],
-                [0,                0,              1-gamma-gamma**2],
-                [0,                1-beta-beta**2, 0],
-                [0.0,              beta/2,         gamma/2],
-                [1-alpha-alpha**2, 0,              0],
-                [alpha/2,          0.0,            gamma/2],
-                [alpha/2,          beta/2,         0.0],
-                [alpha**2,         beta**2,        gamma**2]])
+    #     M = np.array([
+    #             [0.0,              0.0,            0.0],
+    #             [0,                0,              1-gamma-gamma**2],
+    #             [0,                1-beta-beta**2, 0],
+    #             [0.0,              beta/2,         gamma/2],
+    #             [1-alpha-alpha**2, 0,              0],
+    #             [alpha/2,          0.0,            gamma/2],
+    #             [alpha/2,          beta/2,         0.0],
+    #             [alpha**2,         beta**2,        gamma**2]])
 
     elif method == 'quasi_IPL':
 

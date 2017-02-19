@@ -8,7 +8,7 @@
 
 import numpy as np
 import scipy as sp
-import ipdb
+# import ipdb
 
 
 class WeakLogisticRegression(object):
@@ -32,7 +32,6 @@ class WeakLogisticRegression(object):
             self.params['alpha'] = 0
         if self.method == "Mproper" and 'alpha' not in self.params:
             self.params['alpha'] = 0
-
 
     def softmax(self, x):
         """

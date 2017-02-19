@@ -2,154 +2,216 @@
 # -*- coding: utf-8 -*-
 
 # PlotLoss plots partial losses over the 3-class probability triangle.
-
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 
 import ipdb
 
-# Parameters
-eta = np.array([0.45, 0.15, 0.4])  # Location of the minimum
-N = 200                  # No. of points for the 2D plot
-fs = 24                  # Fontsize for the plots
-LossName = 'log'         # 'square', 'log' or 'l01'
-# LossName = 'square'    # 'square', 'log' or 'l01'
+EPS = np.nextafter(0, 1)
 
 
-# ## Ambiguity set
-#    001 010 100 011 101 110
-V = np.array([[1, 0, 0, 0,   0,   0],
-              [0, 0, 0, 0.5, 0.5, 0],
-              [0, 1, 0, 0,   0,   0],
-              [0, 0, 0, 0.5, 0,   0.5],
-              [0, 0, 1, 0,   0,   0],
-              [0, 0, 0, 0,   0.5, 0.5]]).T
+def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
 
-U = np.array([[1, 1, 0, 0, 0, 0],
-              [0, 0, 1, 1, 0, 0],
-              [0, 0, 0, 0, 1, 1]]).T
+    ''' Computes a mean value of the conditional loss l(eta, q), where eta is
+        the true posterior and q is an estimate.
 
-# ## True mixing matrix
-#    001 010 100 011 101 110
-M = np.array([[0.5, 0,   0,   0.4, 0.1, 0],
-              [0,   0.5, 0,   0.3, 0,   0.2],
-              [0,   0,   0.6, 0,   0.2, 0.2]]).T
+        Args:
+            eta       : Column vector.
+            q         : Column vector with the same dimension than eta
+            loss_name : Loss function. Available options are
+                           'square' :Square loss
+                           'log'    :Log loss (cross entroy)
+                           'l01'    :zero-one loss
+                           'DD'     :Decision directed loss (also called OSL)
 
-d, c = M.shape
-# R0 = 0.1*rand(d,c);
-# R1 = 0.1*rand(d,c);
-# M  = R1 + (1-R0-R1).*M;
-# M  = M./(ones(d,1)*sum(M));
+            The following parameters are used to compute weak losses
+            B
+            M
+            Z
+    '''
 
-A = np.dot(np.linalg.inv(V.T), U)
-B = np.dot(M.T, np.dot(np.linalg.inv(V.T), U))
+    if loss_name == 'square':   # ## Square loss
+        dim = len(q)
+        loss = np.sum((np.eye(dim) - q)**2, 1).T
+    elif loss_name == 'log':     # ## Cross entropy
+        # ipdb.set_trace()
+        loss = np.minimum(-np.log(q + EPS), 10)
+    elif loss_name == 'l01':
+        loss = np.ones(dim)
+        loss[np.argmax(q)] = 0
+    elif loss_name == 'DD':
+        bloss = - np.log(np.max(Z * q + EPS, axis=1, keepdims=True))
 
-# ## Points (q0,q1,q2) to evaluate in the probability triangle
-p = np.linspace(0, 1, N)    # Values of q2;
-delta = np.linspace(-1, 1, N)   # Values of q0-q1;
+    # ## Average loss
+    if loss_name == 'DD':
+        meanloss = np.dot(eta.T, np.dot(M.T, bloss))
+    else:
+        meanloss = np.dot(eta.T, np.dot(B, loss))
 
-# ## Evaluate loss in the probability triangle
-MinLossij = 1e10
-meanloss = np.zeros((N, N))
+    return meanloss
 
-for i in range(N):
-    for j in range(N):
 
-        # ## Compute class probabilities corresponding to delta[i],p[j]
-        q2 = p[j]
-        q1 = (1 - q2 + delta[i])/2
-        q0 = (1 - q2 - delta[i])/2
-        q = np.array([q0, q1, q2])
+def compute_simplex(loss_name, V, U, M, Z, eta, N=300):
 
-        if np.all(q >= 0):
+    # ## Points (q0,q1,q2) to evaluate in the probability triangle
+    p = np.linspace(0, 1, N)    # Values of q2;
+    delta = np.linspace(-1, 1, N)   # Values of q0-q1;
 
-            # The point is in the probability triange. Evaluate loss
-            if LossName == 'square':   # ## Square loss
-                loss = np.sum((np.eye(3) - q*np.ones((1, 3)))**2, 1).T
-            elif LossName == 'log':     # ## Cross entropy
-                # ipdb.set_trace()
-                loss = np.minimum(-np.log(q + np.nextafter(0, 1)), 10)
-            elif LossName == 'l01':
-                loss = float(q == np.max(q))
+    MinLossij = 1e10
+    meanloss = np.zeros((N, N))
 
-            # ## Average loss
-            meanloss[i][j] = np.dot(eta.T, np.dot(B, loss))
-            if meanloss[i][j] < MinLossij:
-                MinLossij = meanloss[i][j]
-                destMin = delta[i]
-                pestMin = p[j]
+    B = np.dot(M.T, np.dot(np.linalg.inv(V.T), U))
 
-            if np.isnan(meanloss[i][j]):
-                ipdb.set_trace()
+    for i in range(N):
+        for j in range(N):
 
-        else:
-            # The point is out of the probability simplex.
-            meanloss[i][j] = None
-            ipdb.set_trace()
+            # ## Compute class probabilities corresponding to delta[i], p[j]
+            q2 = p[j]
+            q1 = (1 - q2 + delta[i])/2
+            q0 = (1 - q2 - delta[i])/2
+            q = np.array([q0, q1, q2])
 
-# ## Locate minimum
-pMin = eta[2]
-dMin = eta[1]-eta[0]
-iMin = np.argmin(np.abs(delta - dMin))
-jMin = np.argmin(np.abs(p - pMin))
+            if np.all(q >= 0):
 
-alpha = 1/np.sqrt(3)
+                # The point is in the probability triange. Evaluate loss
+                meanloss[i][j] = compute_loss(q, eta, loss_name, B, M, Z)
 
-# ## Paint loss surface
-mlMax = np.max(np.max(meanloss))
-mlMin = np.min(np.min(meanloss))
-scaledmeanloss = 0.4 + 0.6 * (meanloss - mlMin) / (mlMax - mlMin)
-scaledmeanloss[iMin][jMin] = 0
+                # Locate the position of the minimum loss
+                if meanloss[i][j] < MinLossij:
+                    MinLossij = meanloss[i][j]
+                    destMin = delta[i]
+                    pestMin = p[j]
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+            else:
 
-xx, yy = np.meshgrid(p, alpha * delta)
-ax.plot_surface(xx, yy, scaledmeanloss)
+                # The point is out of the probability simplex.
+                meanloss[i][j] = np.inf
 
-ipdb.set_trace()
-# h = plt.contour(p, alpha * delta, scaledmeanloss, 15, 'k')
-# colormap gray
-# shading interp
-# plt.axis('equal')
-# plt.view(90, -90)
+    return meanloss, destMin, pestMin
 
-# ## Plot
-# h2 = plt.plot3(np.array([0, 0, 1, 0]),
-#                np.array([alpha, -alpha, 0, alpha]),
-#                -2 * np.array([1, 1, 1, 1]), 'k')
-# set(h2, 'LineWidth', 2)
 
-# # ## Plot true posterior
-# h = plt.scatter(pMin, alpha * dMin, -2, color='k', marker='.',
-#                 markersize=18)
+def main():
 
-# # ## Plot estimated posterior
-# h = plt.scatter(pestMin, alpha * destMin, -2, color='k', marker='.',
-#                 markersize=18)
+    # ## Evaluate loss in the probability triangle
 
-# # axis off
+    #########################
+    # Configurable parameters
 
-# # ## Write labels
-# plt.text(0, -0.66, 0, '{\bf e}_0', 'FontName', 'Times New Roman', 'FontSize',
-#          fs)
-# plt.text(0, 0.59, 0, '{\bf e}_1', 'FontName', 'Times New Roman', 'FontSize',
-#          fs)
-# plt.text(0.98, 0.03,  0, '{\bf e}_2', 'FontName', 'Times New Roman',
-#          'FontSize', fs)
-# plt.text(pMin, alpha * dMin + 0.04,  0, '\eta', 'FontName', 'Times New Roman',
-#          'FontSize', fs)
-# plt.text(pestMin, alpha * destMin + 0.04, 0, '\eta^*', 'FontName',
-#          'Times New Roman', 'FontSize', fs)
-# plt.text(pestMin + 0.02, alpha * destMin + 0.04, 0, '^', 'FontName',
-#          'Times New Roman', 'FontSize', fs)
+    # Parameters
+    eta = np.array([0.35, 0.2, 0.45])  # Location of the minimum
+    loss_name = 'DD'         # 'square', 'log', 'l01' or 'DD'
 
-# if LossName == 'square':
-#     hgsave('SquareLoss')
-#     print -dpdf SquareLoss
-#     print -deps SquareLoss
-# elif LossName == 'log':
-#     hgsave('LogLoss')
-#     print -dpdf LogLoss
-#     print -deps LogLoss
+    # ## Possible weak labels
+    Z = np.array([[1.0, 0, 0, 1, 1, 0],
+                  [0,   1, 0, 1, 0, 1],
+                  [0,   0, 1, 0, 1, 1]]).T
+
+    V = np.array([[1, 0, 0, 0,   0,   0],
+                  [0, 0, 0, 0.5, 0.5, 0],
+                  [0, 1, 0, 0,   0,   0],
+                  [0, 0, 0, 0.5, 0,   0.5],
+                  [0, 0, 1, 0,   0,   0],
+                  [0, 0, 0, 0,   0.5, 0.5]]).T
+
+    U = np.array([[1, 1, 0, 0, 0, 0],
+                  [0, 0, 1, 1, 0, 0],
+                  [0, 0, 0, 0, 1, 1]]).T
+
+    # ## True mixing matrix
+    #    001 010 100 011 101 110
+    # M = np.array([[0.5, 0,   0,   0.4, 0.1, 0],
+    #               [0,   0.5, 0,   0.3, 0,   0.2],
+    #               [0,   0,   0.6, 0,   0.2, 0.2]]).T
+    M = np.array([[0.6, 0,   0,   0.2, 0.2, 0],
+                  [0,   0.8, 0,   0.1, 0,   0.1],
+                  [0,   0,   0.4, 0,   0.3, 0.3]]).T
+
+    # Parameters for the plots
+    fs = 14   # Font size
+
+    # ###################
+    # ## Loss computation
+
+    # Compute loss values over the probability simplex
+    d, c = M.shape
+    meanloss, destMin, pestMin = compute_simplex(loss_name, V, U, M, Z, eta)
+
+    # ## Locate minimum
+    pMin = eta[2]
+    dMin = eta[1] - eta[0]
+
+    # ## Points (q0, q1, q2) to evaluate in the probability triangle
+    N = 300
+    p = np.linspace(0, 1, N)        # Values of q2;
+    delta = np.linspace(-1, 1, N)   # Values of q0-q1;
+
+    # ## Paint loss surface
+    meanloss = np.minimum(meanloss, 2)
+    mlMax = np.max(np.max(meanloss))
+    mlMin = np.min(np.min(meanloss))
+    scaledmeanloss = 0.0 + 1.0 * (meanloss - mlMin) / (mlMax - mlMin)
+
+    # This is a scale factor to make sure that the plotted triangle is
+    # equilateral
+    alpha = 1 / np.sqrt(3)
+
+    # Contour plot
+    # from matplotlib import colors,
+    fig = plt.figure()
+    ax2 = fig.add_subplot(111)
+    xx, yy = np.meshgrid(p, delta)
+    levs = np.linspace(0, 1, 50)
+    mask = scaledmeanloss == np.inf
+    scaledmeanloss[mask] = np.ma.masked
+
+    ax2.contourf(alpha * yy, xx, scaledmeanloss, levs, cmap=cm.hsv)
+
+    # Plot true posterior
+    ax2.scatter(alpha * dMin, pMin, color='g')
+    ax2.text(alpha * dMin + 0.025, pMin, '$\eta$', size=fs)
+
+    # Plot minimum (estimated posterior)
+    ax2.scatter(alpha * destMin, pestMin, color='k')
+    ax2.text(alpha * destMin + 0.025, pestMin, '$\eta^*$', size=fs)
+    ax2.plot([-alpha, 0, alpha, -alpha], [0, 1, 0, 0], '-')
+    ax2.axis('off')
+
+    # ## Write labels
+    ax2.text(-0.74, 0, '$(1,0,0)$', size=fs)
+    ax2.text(0.59, 0, '$(0,1,0)$', size=fs)
+    ax2.text(0.05, 0.96, '$(0,0,1)$', size=fs)
+    # ax2.axis('off')
+    ax2.axis('equal')
+
+    # plt.text(0, -0.66, 0, '{\bf e}_0', 'FontName', 'Times New Roman', 'FontSize',
+    #          fs)
+    # plt.text(0, 0.59, 0, '{\bf e}_1', 'FontName', 'Times New Roman', 'FontSize',
+    #          fs)
+    # plt.text(0.98, 0.03,  0, '{\bf e}_2', 'FontName', 'Times New Roman',
+    #          'FontSize', fs)
+    # plt.text(pMin, alpha * dMin + 0.04,  0, '\eta', 'FontName', 'Times New Roman',
+    #          'FontSize', fs)
+    # plt.text(pestMin, alpha * destMin + 0.04, 0, '\eta^*', 'FontName',
+    #          'Times New Roman', 'FontSize', fs)
+    # plt.text(pestMin + 0.02, alpha * destMin + 0.04, 0, '^', 'FontName',
+    #          'Times New Roman', 'FontSize', fs)
+
+    plt.show(block=False)
+    plt.savefig('example.png')
+
+    ipdb.set_trace()
+
+
+    # if LossName == 'square':
+    #     hgsave('SquareLoss')
+    #     print -dpdf SquareLoss
+    #     print -deps SquareLoss
+    # elif LossName == 'log':
+    #     hgsave('LogLoss')
+    #     print -dpdf LogLoss
+    #     print -deps LogLoss
+
+if __name__ == "__main__":
+    main()
+
