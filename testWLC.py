@@ -20,6 +20,11 @@ import ipdb
 import wlc.WLclassifier as wlc
 import wlc.WLweakener as wlw
 
+import warnings
+
+warnings.filterwarnings("ignore")
+np.random.seed(42)
+
 
 def evaluateClassif(classif, X, y, v=None, n_sim=1):
 
@@ -62,6 +67,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
             print '{0} segundos'.format((time.clock() - start) * n_sim)
 
     return Pe_tr, Pe_cv
+
 
 ###############################################################################
 # ## MAIN #####################################################################
