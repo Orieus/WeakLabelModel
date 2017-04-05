@@ -6,6 +6,7 @@
 """
 
 # External modules
+import os
 import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
@@ -14,7 +15,6 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib
 import matplotlib.pyplot as plt
 import time
-import ipdb
 
 # My modules
 import wlc.WLclassifier as wlc
@@ -25,6 +25,50 @@ import warnings
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
+def newfig(name):
+    fig = plt.figure(name)
+    fig.clf()
+    return fig
+
+def savefig(fig, path='', prefix='weak_labels_', extension='svg'):
+    fig.tight_layout()
+    name = fig.get_label()
+    filename = "{}{}.{}".format(prefix, name, extension)
+    fig.savefig(os.path.join(path, filename))
+
+def plot_data(x, y):
+    fig = newfig('data')
+    ax = fig.add_subplot(111)
+    ax.scatter(x[:, 0], x[:, 1], c=y, s=50, cmap='Paired')
+    ax.set_xlabel('$x_0$')
+    ax.set_ylabel('$x_1$')
+    ax.set_title('Labeled dataset')
+    ax.axis('equal')
+    ax.grid(True)
+    savefig(fig)
+
+def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
+    # Config plots.
+    font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
+    matplotlib.rc('font', **font)
+
+    # Plot error scatter.
+    fig = newfig('error_rate')
+    ax = fig.add_subplot(111)
+    for i, tag in enumerate(tag_list):
+        ax.scatter([i + 1]*n_sim, Pe_tr[tag], c='white', s=100, alpha=.8,
+                   label='training')
+        ax.scatter([i + 1]*n_sim, Pe_cv[tag], c='black', s=30, alpha=.8,
+                   label='validation')
+
+    ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
+                 n_classes, n_sim))
+    ax.set_xticks(range(1, 1 + len(tag_list)))
+    ax.set_xticklabels(tag_list, rotation=45, ha='right')
+    ax.set_ylim([-0.01,1.01])
+    ax.legend(['training', 'validation'])
+    ax.grid(True)
+    savefig(fig)
 
 def evaluateClassif(classif, X, y, v=None, n_sim=1):
 
@@ -78,8 +122,8 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
 
 # Parameters for sklearn synthetic data
 ns = 400        # Sample size
-nf = 2         # Data dimension
-n_classes = 20   # Number of classes
+nf = 2          # Data dimension
+n_classes = 20  # Number of classes
 
 # Common parameters for all AL algorithms
 n_sim = 10      # No. of simulation runs to average
@@ -124,20 +168,12 @@ z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
 v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
 
-ipdb.set_trace()
-
 # Convert z to a list of binary lists (this is for the OSL alg)
 z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 
 # If dimension is 2, we draw a scatterplot
-if nf == 2:
-    # Scatterplot.
-    plt.scatter(X[:, 0], X[:, 1], c=2*y, s=20, cmap='copper')
-    plt.xlabel('$x_0$')
-    plt.ylabel('$x_1$')
-    plt.title('Labeled dataset')
-    plt.axis('equal')
-    plt.show(block=False)
+if nf >= 2:
+    plot_data(X, y)
 
 ######################
 # ## Select classifier
@@ -167,94 +203,104 @@ tag_list = []
 # ###################
 # Supervised learning
 tag = 'Supervised'
-tag_list.append(tag)
+print tag
 title[tag] = 'Learning from clean labels:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+tag_list.append(tag)
 
 # ##########################
 # Supervised learning (BFGS)
 tag = 'Superv-BFGS'
-tag_list.append(tag)
+print tag
 title[tag] = 'Learning from clean labels with BFGS:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS', params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+tag_list.append(tag)
 
 # ##################################
 # Optimistic Superset Learning (OSL)
 tag = 'OSL'
-tag_list.append(tag)
+print tag
 title[tag] = 'Optimistic Superset Loss (OSL)'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+tag_list.append(tag)
 
 # ############################################
 # Optimistic Superset Learning (OSL) with BFGS
 tag = 'OSL-BFGS'
-tag_list.append(tag)
+print tag
 title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+tag_list.append(tag)
 
 # # ############################################
 # # Add hoc M-proper loss with Gradient Descent
 tag = 'Mproper-GD'
-tag_list.append(tag)
+print tag
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
+tag_list.append(tag)
 
 # # ############################################
 # # Add hoc M-proper loss with BFGS
 tag = 'Mproper-BFGS'
-tag_list.append(tag)
+print tag
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
+tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLL-GD'
-tag_list.append(tag)
+print tag
 title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
+tag_list.append(tag)
 
 # ###################################################
 # Virtual Label Learning with BFGS and regularization
 tag = 'VLL-BFGS'
-tag_list.append(tag)
+print tag
 title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
 params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
+tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-GD'
-tag_list.append(tag)
+print tag
 title[tag] = 'CC-VLL with Gradient Descent'
 params = {'rho': rho, 'n_it': n_it}
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-BFGS'
-tag_list.append(tag)
+print tag
 title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
 Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+tag_list.append(tag)
 
 # ############
 # Print results.
@@ -268,18 +314,7 @@ for tag in tag_list:
 
 # #################
 # # ## Plot results
-
-# Config plots.
-font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
-matplotlib.rc('font', **font)
-
-# Plot error barplots.
-plt.figure()
-for i, tag in enumerate(tag_list):
-    plt.scatter([i + 1]*n_sim, Pe_cv[tag], c=[i]*n_sim, s=20, cmap='copper')
-
-plt.xticks(range(1, 1 + len(tag_list)), tag_list, rotation='45')
-plt.show(block=False)
+plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # Plot decision boundaries.
 # Plotting decision regions
@@ -302,9 +337,6 @@ plt.show(block=False)
 #     axarr[idx[0], idx[1]].scatter(X[:, 0], X[:, 1], c=y, alpha=0.8)
 #     axarr[idx[0], idx[1]].set_title(tt)
 
-# plt.show()
-
-ipdb.set_trace()
-
+plt.show(block=False)
 print '================'
 print 'Fin de ejecucion'
