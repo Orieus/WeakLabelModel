@@ -121,12 +121,12 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400        # Sample size
+ns = 20        # Sample size
 nf = 2          # Data dimension
-n_classes = 20  # Number of classes
+n_classes = 3  # Number of classes
 
 # Common parameters for all AL algorithms
-n_sim = 10      # No. of simulation runs to average
+n_sim = 4      # No. of simulation runs to average
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
@@ -193,6 +193,9 @@ print 'Weak Label Analysis'
 
 wLR = {}
 title = {}
+x_train = {}
+y_train = {}
+y_test = {}
 Pe_tr = {}
 Pe_cv = {}
 Pe_tr_mean = {}
@@ -203,104 +206,123 @@ tag_list = []
 # ###################
 # Supervised learning
 tag = 'Supervised'
-print tag
 title[tag] = 'Learning from clean labels:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = y
 tag_list.append(tag)
 
 # ##########################
 # Supervised learning (BFGS)
 tag = 'Superv-BFGS'
-print tag
 title[tag] = 'Learning from clean labels with BFGS:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS', params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, y, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = y
 tag_list.append(tag)
 
 # ##################################
 # Optimistic Superset Learning (OSL)
 tag = 'OSL'
-print tag
 title[tag] = 'Optimistic Superset Loss (OSL)'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
 # Optimistic Superset Learning (OSL) with BFGS
 tag = 'OSL-BFGS'
-print tag
 title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = z_bin
 tag_list.append(tag)
 
 # # ############################################
 # # Add hoc M-proper loss with Gradient Descent
 tag = 'Mproper-GD'
-print tag
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = v2
 tag_list.append(tag)
 
 # # ############################################
 # # Add hoc M-proper loss with BFGS
 tag = 'Mproper-BFGS'
-print tag
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v2, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = v2
 tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLL-GD'
-print tag
 title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = v
 tag_list.append(tag)
 
 # ###################################################
 # Virtual Label Learning with BFGS and regularization
 tag = 'VLL-BFGS'
-print tag
 title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
 params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, v, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = v
 tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-GD'
-print tag
 title[tag] = 'CC-VLL with Gradient Descent'
 params = {'rho': rho, 'n_it': n_it}
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-BFGS'
-print tag
 title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y, z_bin, n_sim=n_sim)
+x_train[tag] = X
+y_train[tag] = y
+y_test[tag] = z_bin
 tag_list.append(tag)
+
+# ############
+# Evaluation and plot of each model
+for i, tag in enumerate(tag_list):
+    print tag
+    Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_train[tag],
+                                             y_train[tag], y_test[tag],
+                                             n_sim=n_sim)
+    plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # ############
 # Print results.
@@ -311,10 +333,6 @@ for tag in tag_list:
     print title[tag]
     print '* Average train error = {0}'.format(Pe_tr_mean[tag])
     print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
-
-# #################
-# # ## Plot results
-plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # Plot decision boundaries.
 # Plotting decision regions
