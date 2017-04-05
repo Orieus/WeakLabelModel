@@ -13,6 +13,20 @@ import sys
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     """
     Generate a mixing matrix M, given the number of classes c.
+
+    Parameters
+    ----------
+    c : int
+        Number of classes
+    alpha : float, optional (default=0.5)
+    beta : float, optional (default=0.5)
+    gamma : float, optional (default=0.5)
+    method : string, optional (default='supervised')
+        It must be one of 'supervised', 'noisy', 'IPL', 'quasi_IPL'
+
+    Returns
+    -------
+    M : array-like, shape = (n_classes, n_classes)
     """
 
     if method == 'supervised':
@@ -77,6 +91,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         # Compute mixing matrix row by row for the nonzero rows
         for z in range(1, d-1):
 
+            # Convert the decimal value z to a binary list of length c
             z_bin = [int(b) for b in bin(z)[2:].zfill(c)]
             modz = sum(z_bin)
 
@@ -94,8 +109,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
 def generateWeak(y, M, c):
     """
-   Generate the set of weak labels z for n examples, given the ground truth
-   labels y for n examples, a mixing matrix M, and a number of classes c.
+    Generate the set of weak labels z for n examples, given the ground truth
+    labels y for n examples, a mixing matrix M, and a number of classes c.
     """
 
     z = np.zeros(y.shape)        # Weak labels for all labels y (int)
