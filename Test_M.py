@@ -6,14 +6,10 @@
 
 # External modules
 import numpy as np
-import pandas as pd
-import sklearn.datasets as skd
-# import sklearn.linear_model as sklm
 import sklearn.model_selection as skms
 from sklearn.preprocessing import StandardScaler
 import matplotlib
 import matplotlib.pyplot as plt
-import time
 import ipdb
 
 # My modules
