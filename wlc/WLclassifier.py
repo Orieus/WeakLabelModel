@@ -11,6 +11,7 @@ import scipy as sp
 # import ipdb
 import warnings
 
+
 class WeakLogisticRegression(object):
 
     def __init__(self, n_classes=2, method="VLL", optimizer='GD',
@@ -150,7 +151,7 @@ class WeakLogisticRegression(object):
             # L = -np.sum(T*logp)
 
         if L < 0:
-            warnings.warn(("Negative log-loss (L={}): use larger parameter "+
+            warnings.warn(("Negative log-loss (L={}): use larger parameter " +
                            "alpha)").format(L))
 
         return L

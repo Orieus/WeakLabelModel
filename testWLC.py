@@ -25,16 +25,19 @@ import warnings
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
+
 def newfig(name):
     fig = plt.figure(name)
     fig.clf()
     return fig
+
 
 def savefig(fig, path='', prefix='weak_labels_', extension='svg'):
     fig.tight_layout()
     name = fig.get_label()
     filename = "{}{}.{}".format(prefix, name, extension)
     fig.savefig(os.path.join(path, filename))
+
 
 def plot_data(x, y):
     fig = newfig('data')
@@ -46,6 +49,7 @@ def plot_data(x, y):
     ax.axis('equal')
     ax.grid(True)
     savefig(fig)
+
 
 def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
     # Config plots.
@@ -65,10 +69,11 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
                  n_classes, n_sim))
     ax.set_xticks(range(1, 1 + len(tag_list)))
     ax.set_xticklabels(tag_list, rotation=45, ha='right')
-    ax.set_ylim([-0.01,1.01])
+    ax.set_ylim([-0.01, 1.01])
     ax.legend(['training', 'validation'])
     ax.grid(True)
     savefig(fig)
+
 
 def evaluateClassif(classif, X, y, v=None, n_sim=1):
 
