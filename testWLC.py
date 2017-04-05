@@ -121,12 +121,12 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 20        # Sample size
+ns = 400        # Sample size
 nf = 2          # Data dimension
-n_classes = 3  # Number of classes
+n_classes = 20  # Number of classes
 
 # Common parameters for all AL algorithms
-n_sim = 4      # No. of simulation runs to average
+n_sim = 10      # No. of simulation runs to average
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
