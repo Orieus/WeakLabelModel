@@ -133,9 +133,10 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=-1):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400        # Sample size
-nf = 2          # Data dimension
-n_classes = 20  # Number of classes
+ns = 400          # Sample size
+nf = 2            # Data dimension
+n_classes = 20    # Number of classes
+problem = 'blobs' # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all AL algorithms
 n_sim = 10      # No. of simulation runs to average
@@ -171,6 +172,16 @@ print "======================================"
 X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
                       cluster_std=2.0, center_box=(-10.0, 10.0), shuffle=True,
                       random_state=None)
+if problem == 'blobs':
+    X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
+                          cluster_std=2.0, center_box=(-10.0, 10.0),
+                          shuffle=True, random_state=None)
+elif problem == 'gauss_quantiles':
+    X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
+                                   n_classes=n_classes, shuffle=True,
+                                   random_state=None)
+else:
+    raise("Problem type unknown: {}".format(problem))
 X = StandardScaler().fit_transform(X)
 
 # Generate weak labels
@@ -367,6 +378,5 @@ for tag in tag_list:
 #     axarr[idx[0], idx[1]].scatter(X[:, 0], X[:, 1], c=y, alpha=0.8)
 #     axarr[idx[0], idx[1]].set_title(tt)
 
-plt.show(block=False)
 print '================'
 print 'Fin de ejecucion'
