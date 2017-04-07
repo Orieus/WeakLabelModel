@@ -7,6 +7,7 @@
 
 # External modules
 import os
+import sys
 import errno
 import numpy as np
 import sklearn.datasets as skd
@@ -150,6 +151,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
 
         print '\tAveraging {0} simulations. Estimated time to finish {1:0.4f}s.\r'.format(
                 n_sim, (time.clock() - start)/(i+1)*(n_sim-i)),
+        sys.stdout.flush()
 
     print ''
     return Pe_tr, Pe_cv
