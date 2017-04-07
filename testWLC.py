@@ -89,10 +89,10 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     classif : object
         This is the classifier that needs to be trained and evaluated. It needs
         to have the following functions:
-            - fit :
-            - predict :
-            - predict_proba :
-            - get_params :
+            - fit(X,y) :
+            - predict(X) :
+            - predict_proba(X) :
+            - get_params() : All the necessary parameters to create a deep copy
 
     X : array-like, with shape (n_samples, n_dim)
         The data to fit.
@@ -148,7 +148,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         # Estimate error rates:
         Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
 
-        print 'Averaging {0} simulations. Estimated time to finish {1:0.4f} s.\r'.format(
+        print '\tAveraging {0} simulations. Estimated time to finish {1:0.4f}s.\r'.format(
                 n_sim, (time.clock() - start)/(i+1)*(n_sim-i)),
 
     print ''
@@ -200,12 +200,9 @@ print "======================================"
 #     n_repeated=0, n_classes=n_classes, n_clusters_per_class=2, weights=None,
 #     flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
 #     shuffle=True, random_state=None)
-X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
-                      cluster_std=2.0, center_box=(-10.0, 10.0), shuffle=True,
-                      random_state=None)
 if problem == 'blobs':
     X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
-                          cluster_std=2.0, center_box=(-10.0, 10.0),
+                          cluster_std=1.0, center_box=(-10.0, 10.0),
                           shuffle=True, random_state=None)
 elif problem == 'gauss_quantiles':
     X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
