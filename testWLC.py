@@ -7,6 +7,7 @@
 
 # External modules
 import os
+import errno
 import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
@@ -32,10 +33,15 @@ def newfig(name):
     return fig
 
 
-def savefig(fig, path='', prefix='weak_labels_', extension='svg'):
+def savefig(fig, path='figures', prefix='weak_labels_', extension='svg'):
     fig.tight_layout()
     name = fig.get_label()
     filename = "{}{}.{}".format(prefix, name, extension)
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
     fig.savefig(os.path.join(path, filename))
 
 
