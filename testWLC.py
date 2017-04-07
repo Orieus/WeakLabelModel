@@ -60,10 +60,10 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
     fig = newfig('error_rate')
     ax = fig.add_subplot(111)
     for i, tag in enumerate(tag_list):
-        ax.scatter([i + 1]*n_sim, Pe_tr[tag], c='white', s=100, alpha=.8,
-                   label='training')
-        ax.scatter([i + 1]*n_sim, Pe_cv[tag], c='black', s=30, alpha=.8,
-                   label='validation')
+        ax.scatter([i + 1]*n_sim, Pe_tr[tag], c='white', edgecolors='black',
+                   s=100, alpha=.8, label='training')
+        ax.scatter([i + 1]*n_sim, Pe_cv[tag], c='black', edgecolors='black',
+                   s=30, alpha=.8, label='validation')
 
     ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
                  n_classes, n_sim))
@@ -75,7 +75,7 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
     savefig(fig)
 
 
-def evaluateClassif(classif, X, y, v=None, n_sim=1):
+def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=-1):
 
     # Default v
     if v is None:
@@ -107,7 +107,8 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
         # Self evaluation.
         # First, we compute leave-one-out predictions
         n_folds = min(10, ns)
-        preds = skcv.cross_val_predict(classif, X, v, cv=n_folds, verbose=0)
+        preds = skcv.cross_val_predict(classif, X, v, cv=n_folds, verbose=0,
+                                       n_jobs=n_jobs)
 
         # Estimate error rates:
         Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
@@ -161,9 +162,9 @@ print "======================================"
 #     n_repeated=0, n_classes=n_classes, n_clusters_per_class=2, weights=None,
 #     flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
 #     shuffle=True, random_state=None)
-X, y = skd.make_blobs(
-    n_samples=ns, n_features=nf, centers=n_classes, cluster_std=2.0,
-    center_box=(-10.0, 10.0), shuffle=True, random_state=None)
+X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
+                      cluster_std=2.0, center_box=(-10.0, 10.0), shuffle=True,
+                      random_state=None)
 X = StandardScaler().fit_transform(X)
 
 # Generate weak labels
@@ -198,9 +199,9 @@ print 'Weak Label Analysis'
 
 wLR = {}
 title = {}
-x_train = {}
-y_train = {}
-y_test = {}
+x_dict = {}
+y_dict = {}
+v_dict = {}
 Pe_tr = {}
 Pe_cv = {}
 Pe_tr_mean = {}
@@ -214,9 +215,9 @@ tag = 'Supervised'
 title[tag] = 'Learning from clean labels:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = y
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = y
 tag_list.append(tag)
 
 # ##########################
@@ -225,9 +226,9 @@ tag = 'Superv-BFGS'
 title[tag] = 'Learning from clean labels with BFGS:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS', params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = y
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = y
 tag_list.append(tag)
 
 # ##################################
@@ -236,9 +237,9 @@ tag = 'OSL'
 title[tag] = 'Optimistic Superset Loss (OSL)'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
                                       params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = z_bin
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
@@ -247,9 +248,9 @@ tag = 'OSL-BFGS'
 title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = z_bin
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # # ############################################
@@ -258,9 +259,9 @@ tag = 'Mproper-GD'
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = v2
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v2
 tag_list.append(tag)
 
 # # ############################################
@@ -269,9 +270,9 @@ tag = 'Mproper-BFGS'
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = v2
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v2
 tag_list.append(tag)
 
 # ############################################
@@ -280,9 +281,9 @@ tag = 'VLL-GD'
 title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = v
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v
 tag_list.append(tag)
 
 # ###################################################
@@ -292,9 +293,9 @@ title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
 params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = v
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v
 tag_list.append(tag)
 
 # ############################################
@@ -304,9 +305,9 @@ title[tag] = 'CC-VLL with Gradient Descent'
 params = {'rho': rho, 'n_it': n_it}
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = z_bin
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
@@ -315,17 +316,17 @@ tag = 'VLLc-BFGS'
 title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
-x_train[tag] = X
-y_train[tag] = y
-y_test[tag] = z_bin
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############
 # Evaluation and plot of each model
 for i, tag in enumerate(tag_list):
     print tag
-    Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_train[tag],
-                                             y_train[tag], y_test[tag],
+    Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_dict[tag],
+                                             y_dict[tag], v_dict[tag],
                                              n_sim=n_sim)
     plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
