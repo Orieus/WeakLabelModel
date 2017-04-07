@@ -6,159 +6,23 @@
 """
 
 # External modules
-import os
-import sys
-import errno
+import warnings
+
 import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
-import sklearn.cross_validation as skcv
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
-import matplotlib
-import matplotlib.pyplot as plt
-import time
 
 # My modules
 import wlc.WLclassifier as wlc
 import wlc.WLweakener as wlw
 
 import keras_models as km
-
-import warnings
+from testUtils import plot_data, plot_results, evaluateClassif
 
 warnings.filterwarnings("ignore")
 np.random.seed(42)
-
-
-def newfig(name):
-    fig = plt.figure(name)
-    fig.clf()
-    return fig
-
-
-def savefig(fig, path='figures', prefix='weak_labels_', extension='svg'):
-    fig.tight_layout()
-    name = fig.get_label()
-    filename = "{}{}.{}".format(prefix, name, extension)
-    try:
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
-    fig.savefig(os.path.join(path, filename))
-
-
-def plot_data(x, y):
-    fig = newfig('data')
-    ax = fig.add_subplot(111)
-    ax.scatter(x[:, 0], x[:, 1], c=y, s=50, cmap='Paired')
-    ax.set_xlabel('$x_0$')
-    ax.set_ylabel('$x_1$')
-    ax.set_title('Labeled dataset')
-    ax.axis('equal')
-    ax.grid(True)
-    savefig(fig)
-
-
-def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
-    # Config plots.
-    font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
-    matplotlib.rc('font', **font)
-
-    # Plot error scatter.
-    fig = newfig('error_rate')
-    ax = fig.add_subplot(111)
-    for i, tag in enumerate(tag_list):
-        ax.scatter([i + 1]*n_sim, Pe_tr[tag], c='white', edgecolors='black',
-                   s=100, alpha=.8, label='training')
-        ax.scatter([i + 1]*n_sim, Pe_cv[tag], c='black', edgecolors='black',
-                   s=30, alpha=.8, label='validation')
-
-    ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
-                 n_classes, n_sim))
-    ax.set_xticks(range(1, 1 + len(tag_list)))
-    ax.set_xticklabels(tag_list, rotation=45, ha='right')
-    ax.set_ylim([-0.01, 1.01])
-    ax.legend(['training', 'validation'])
-    ax.grid(True)
-    savefig(fig)
-
-
-def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
-    """Evaluates a classifier using cross-validation
-
-    Parameters
-    ----------
-    classif : object
-        This is the classifier that needs to be trained and evaluated. It needs
-        to have the following functions:
-            - fit(X,y) :
-            - predict(X) :
-            - predict_proba(X) :
-            - get_params() : All the necessary parameters to create a deep copy
-
-    X : array-like, with shape (n_samples, n_dim)
-        The data to fit.
-
-    y : array-like, with shape (n_samples, n_classes)
-        The target variable.
-
-    v : array-like, optional, with shape (n_samples, n_classes), default: 'y'
-        The virtual target variable.
-
-    n_sim : integer, optional, default: 1
-        The number of simulation runs.
-
-    n_jobs : integer, optional, default: 1
-        The number of CPUs to use to do the computation. -1 means 'all CPUs'
-
-    Returns
-    -------
-    predictions_training : ndarray
-        This are the predictions on the training set after training
-
-    predictions_validation : ndarray
-        This are the predictions on the validation set after training
-    """
-    # Default v
-    if v is None:
-        v = y
-
-    # ## Initialize aggregate results
-    Pe_tr = [0] * n_sim
-    Pe_cv = [0] * n_sim
-
-    start = time.clock()
-    # ## Loop over simulation runs
-    for i in xrange(n_sim):
-        # ########################
-        # Ground truth evaluation:
-        classif.fit(X, v)
-        f = classif.predict_proba(X)
-
-        # Then, we evaluate this classifier with all labels
-        # Note that training and test samples are being used in this error rate
-        d = np.argmax(f, axis=1)
-        Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
-
-        # ##############
-        # Self evaluation.
-        # First, we compute leave-one-out predictions
-        n_folds = min(10, ns)
-        preds = skcv.cross_val_predict(classif, X, v, cv=n_folds, verbose=0,
-                                       n_jobs=n_jobs)
-
-        # Estimate error rates:
-        Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
-
-        print '\tAveraging {0} simulations. Estimated time to finish {1:0.4f}s.\r'.format(
-                n_sim, (time.clock() - start)/(i+1)*(n_sim-i)),
-        sys.stdout.flush()
-
-    print ''
-    return Pe_tr, Pe_cv
-
 
 ###############################################################################
 # ## MAIN #####################################################################
@@ -168,18 +32,18 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400          # Sample size
-nf = 2            # Data dimension
-n_classes = 20    # Number of classes
-problem = 'blobs' # 'blobs' | 'gauss_quantiles'
+ns = 400           # Sample size
+nf = 2             # Data dimension
+n_classes = 20     # Number of classes
+problem = 'blobs'  # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all AL algorithms
-n_sim = 10      # No. of simulation runs to average
-n_jobs = -1     # Number of CPUs to use (-1 means all CPUs)
+n_sim = 10       # No. of simulation runs to average
+n_jobs = -1      # Number of CPUs to use (-1 means all CPUs)
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
-n_it = 2*ns           # Number of iterations
+n_it = 2*ns            # Number of iterations
 
 # Parameters of the weak label model
 alpha = 0.8
@@ -211,8 +75,8 @@ if problem == 'blobs':
                           shuffle=True, random_state=None)
 elif problem == 'gauss_quantiles':
     X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
-                                   n_classes=n_classes, shuffle=True,
-                                   random_state=None)
+                                       n_classes=n_classes, shuffle=True,
+                                       random_state=None)
 else:
     raise("Problem type unknown: {}".format(problem))
 X = StandardScaler().fit_transform(X)
@@ -261,17 +125,6 @@ Pe_cv_mean = {}
 params = {'rho': rho, 'n_it': n_it}
 tag_list = []
 
-# ###################
-# Supervised learning
-tag = 'Supervised'
-title[tag] = 'Learning from clean labels:'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = y
-tag_list.append(tag)
-
 # ##########################
 # Supervised learning (BFGS)
 tag = 'Superv-BFGS'
@@ -281,17 +134,6 @@ wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = y
-tag_list.append(tag)
-
-# ##################################
-# Optimistic Superset Learning (OSL)
-tag = 'OSL'
-title[tag] = 'Optimistic Superset Loss (OSL)'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
@@ -338,30 +180,6 @@ y_dict[tag] = y
 v_dict[tag] = v
 tag_list.append(tag)
 
-# ###################################################
-# Virtual Label Learning with BFGS and regularization
-tag = 'VLL-BFGS'
-title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                      optimizer='BFGS')
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = v
-tag_list.append(tag)
-
-# ############################################
-# Virtual Label Learning with Gradient Descent
-tag = 'VLLc-GD'
-title[tag] = 'CC-VLL with Gradient Descent'
-params = {'rho': rho, 'n_it': n_it}
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = z_bin
-tag_list.append(tag)
-
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-BFGS'
@@ -379,13 +197,43 @@ tag = 'Keras-LR-Supervised-SGD'
 title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
 params = {'n_it': n_it}
 wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                           output_size=n_classes,
-                                           batch_size=X.shape[0],
-                                           optimizer='SGD',
-                                           params=params)
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = y_bin
+tag_list.append(tag)
+
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-LR-QIPL-SGD'
+title[tag] = 'Keras QIPL loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v
+tag_list.append(tag)
+
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-LR-Mproper-SGD'
+title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v2
 tag_list.append(tag)
 
 # ############
