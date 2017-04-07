@@ -9,6 +9,7 @@
 import numpy as np
 import scipy as sp
 # import ipdb
+import warnings
 
 
 class WeakLogisticRegression(object):
@@ -105,7 +106,6 @@ class WeakLogisticRegression(object):
         return D
 
     def logLoss(self, w, X, T):
-
         """ Compute a regularized log loss (cross-entropy) for samples in X
             virtual labels in T and parameters w. The regularization parameter
             is taken from the object attributes.
@@ -151,9 +151,8 @@ class WeakLogisticRegression(object):
             # L = -np.sum(T*logp)
 
         if L < 0:
-            print "Oooops, negative log loss. ",
-            print "You should user a larger parameter alpha"
-            print "L = {0}".format(L)
+            warnings.warn(("Negative log-loss (L={}): use larger parameter " +
+                           "alpha)").format(L))
 
         return L
 

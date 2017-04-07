@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" This code evaluates logistig regression with weak labels
+""" This code evaluates logistic regression with weak labels
     Author: JCS, June, 2016
 """
 
 # External modules
 import numpy as np
-import pandas as pd
-import sklearn.datasets as skd
-# import sklearn.linear_model as sklm
 import sklearn.model_selection as skms
 from sklearn.preprocessing import StandardScaler
 import matplotlib
 import matplotlib.pyplot as plt
-import time
 import ipdb
 
 # My modules
@@ -161,7 +157,7 @@ for k, p in enumerate(pvalues):
     z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 
     # Target dictionary
-    target = {'true': y, 
+    target = {'true': y,
               'weak': z_bin,
               'virt': v,
               'virtM': v2}
@@ -205,9 +201,9 @@ plt.title('Average error rate')
 for i, tag in enumerate(tag_list):
     plt.plot(pvalues, Pe_cv_mean[tag], label=tag)
 plt.legend()
-plt.xlabel('Parameter of the mixing model')    
-plt.ylabel('Error rate')   
-plt.savefig('PeCV' + datasetName +  optim + '.png') 
+plt.xlabel('Parameter of the mixing model')
+plt.ylabel('Error rate')
+plt.savefig('PeCV' + datasetName +  optim + '.png')
 plt.show(block=False)
 
 # Plot error barplots.
@@ -216,9 +212,9 @@ plt.title('Standard deviations')
 for i, tag in enumerate(tag_list):
     plt.plot(pvalues, Pe_cv_std[tag], label=tag)
 plt.legend()
-plt.xlabel('Parameter of the mixing model')    
-plt.ylabel('Standard deviation')    
-plt.savefig('StdCV' + datasetName + optim + '.png') 
+plt.xlabel('Parameter of the mixing model')
+plt.ylabel('Standard deviation')
+plt.savefig('StdCV' + datasetName + optim + '.png')
 plt.show(block=False)
 
 # ################

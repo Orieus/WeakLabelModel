@@ -58,3 +58,6 @@ target/
 # Other useless things [added by JCS]
 .DS_Store
 .pyc
+
+# Vim swap files
+*.swp

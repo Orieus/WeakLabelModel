@@ -12,16 +12,17 @@ import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import label_binarize
 
 # My modules
 import wlc.WLclassifier as wlc
 import wlc.WLweakener as wlw
 
+import keras_models as km
 from testUtils import plot_data, plot_results, evaluateClassif
 
 warnings.filterwarnings("ignore")
 np.random.seed(42)
-
 
 ###############################################################################
 # ## MAIN #####################################################################
@@ -31,18 +32,18 @@ np.random.seed(42)
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400            # Sample size
-nf = 2              # Data dimension
-n_classes = 20      # Number of classes
-problem = 'blobs'   # 'blobs' | 'gauss_quantiles'
+ns = 400           # Sample size
+nf = 2             # Data dimension
+n_classes = 20     # Number of classes
+problem = 'blobs'  # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all AL algorithms
-n_sim = 10      # No. of simulation runs to average
-n_jobs = -1     # Number of CPUs to use (-1 means all CPUs)
+n_sim = 10       # No. of simulation runs to average
+n_jobs = -1      # Number of CPUs to use (-1 means all CPUs)
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
-n_it = 2*ns           # Number of iterations
+n_it = 2*ns            # Number of iterations
 
 # Parameters of the weak label model
 alpha = 0.8
@@ -80,9 +81,11 @@ else:
     raise("Problem type unknown: {}".format(problem))
 X = StandardScaler().fit_transform(X)
 
+# Convert y into a binary matrix
+y_bin = label_binarize(y, range(n_classes))
+
 # Generate weak labels
-M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
-                 method=method)
+M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
 z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
 v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
@@ -122,17 +125,6 @@ Pe_cv_mean = {}
 params = {'rho': rho, 'n_it': n_it}
 tag_list = []
 
-# ###################
-# Supervised learning
-tag = 'Supervised'
-title[tag] = 'Learning from clean labels:'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = y
-tag_list.append(tag)
-
 # ##########################
 # Supervised learning (BFGS)
 tag = 'Superv-BFGS'
@@ -142,17 +134,6 @@ wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = y
-tag_list.append(tag)
-
-# ##################################
-# Optimistic Superset Learning (OSL)
-tag = 'OSL'
-title[tag] = 'Optimistic Superset Loss (OSL)'
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
@@ -199,30 +180,6 @@ y_dict[tag] = y
 v_dict[tag] = v
 tag_list.append(tag)
 
-# ###################################################
-# Virtual Label Learning with BFGS and regularization
-tag = 'VLL-BFGS'
-title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                      optimizer='BFGS')
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = v
-tag_list.append(tag)
-
-# ############################################
-# Virtual Label Learning with Gradient Descent
-tag = 'VLLc-GD'
-title[tag] = 'CC-VLL with Gradient Descent'
-params = {'rho': rho, 'n_it': n_it}
-wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
-                                      params=params)
-x_dict[tag] = X
-y_dict[tag] = y
-v_dict[tag] = z_bin
-tag_list.append(tag)
-
 # ############################################
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-BFGS'
@@ -234,13 +191,58 @@ y_dict[tag] = y
 v_dict[tag] = z_bin
 tag_list.append(tag)
 
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-LR-Supervised-SGD'
+title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = y_bin
+tag_list.append(tag)
+
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-LR-QIPL-SGD'
+title[tag] = 'Keras QIPL loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v
+tag_list.append(tag)
+
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-LR-Mproper-SGD'
+title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                          output_size=n_classes,
+                                          batch_size=X.shape[0],
+                                          optimizer='SGD',
+                                          params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = v2
+tag_list.append(tag)
+
 # ############
 # Evaluation and plot of each model
 for i, tag in enumerate(tag_list):
     print tag
     Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_dict[tag],
                                              y_dict[tag], v_dict[tag],
-                                             n_sim=n_sim, n_jobs=n_jobs)
+                                             n_sim=n_sim)
     plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # ############
