@@ -81,8 +81,42 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
     savefig(fig)
 
 
-def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=-1):
+def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
+    """Evaluates a classifier using cross-validation
 
+    Parameters
+    ----------
+    classif : object
+        This is the classifier that needs to be trained and evaluated. It needs
+        to have the following functions:
+            - fit :
+            - predict :
+            - predict_proba :
+            - get_params :
+
+    X : array-like, with shape (n_samples, n_dim)
+        The data to fit.
+
+    y : array-like, with shape (n_samples, n_classes)
+        The target variable.
+
+    v : array-like, optional, with shape (n_samples, n_classes), default: 'y'
+        The virtual target variable.
+
+    n_sim : integer, optional, default: 1
+        The number of simulation runs.
+
+    n_jobs : integer, optional, default: 1
+        The number of CPUs to use to do the computation. -1 means 'all CPUs'
+
+    Returns
+    -------
+    predictions_training : ndarray
+        This are the predictions on the training set after training
+
+    predictions_validation : ndarray
+        This are the predictions on the validation set after training
+    """
     # Default v
     if v is None:
         v = y
@@ -91,14 +125,9 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=-1):
     Pe_tr = [0] * n_sim
     Pe_cv = [0] * n_sim
 
-    print '    Averaging {0} simulations. Estimated time...'.format(n_sim),
-
+    start = time.clock()
     # ## Loop over simulation runs
     for i in xrange(n_sim):
-
-        if i == 0:
-            start = time.clock()
-
         # ########################
         # Ground truth evaluation:
         classif.fit(X, v)
@@ -119,9 +148,10 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=-1):
         # Estimate error rates:
         Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
 
-        if i == 0:
-            print '{0} segundos'.format((time.clock() - start) * n_sim)
+        print 'Averaging {0} simulations. Estimated time to finish {1:0.4f} s.\r'.format(
+                n_sim, (time.clock() - start)/(i+1)*(n_sim-i)),
 
+    print ''
     return Pe_tr, Pe_cv
 
 
@@ -140,6 +170,7 @@ problem = 'blobs' # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all AL algorithms
 n_sim = 10      # No. of simulation runs to average
+n_jobs = -1     # Number of CPUs to use (-1 means all CPUs)
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
@@ -344,7 +375,7 @@ for i, tag in enumerate(tag_list):
     print tag
     Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_dict[tag],
                                              y_dict[tag], v_dict[tag],
-                                             n_sim=n_sim)
+                                             n_sim=n_sim, n_jobs=n_jobs)
     plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # ############
