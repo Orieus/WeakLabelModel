@@ -72,16 +72,17 @@ class WeakLogisticRegression(object):
         return logp
 
     def index2bin(self, vector, dim):
-        """ Converts an array of indices into a matrix of binary vectors
+        """
+        Converts an array of indices into a matrix of binary vectors
 
-            Adapted from "http://stackoverflow.com/questions/23300715/
-                          numpy-transform-vector-to-binary-matrix"
-            (Check the web link to see a faster sparse version that is much
-            more efficient for large dimensions)
+        Adapted from "http://stackoverflow.com/questions/23300715/
+                      numpy-transform-vector-to-binary-matrix"
+        (Check the web link to see a faster sparse version that is much more
+        efficient for large dimensions)
 
-            Args:
-               :vector: Array of integer indices 0, 1, ..., dim-1
-               :dim: Dimension of the output vector.
+        Args:
+           :vector: Array of integer indices 0, 1, ..., dim-1
+           :dim: Dimension of the output vector.
         """
 
         n = vector.shape[0]
@@ -92,9 +93,10 @@ class WeakLogisticRegression(object):
 
     def hardmax(self, Z):
 
-        """ Transform each row in array Z into another row with zeroes in the
-            non-maximum values and 1/nmax on the maximum values, where nmax is
-            the number of elements taking the maximum value
+        """
+        Transform each row in array Z into another row with zeroes in the
+        non-maximum values and 1/nmax on the maximum values, where nmax is the
+        number of elements taking the maximum value
         """
 
         D = sp.equal(Z, np.max(Z, axis=1, keepdims=True))
@@ -106,31 +108,31 @@ class WeakLogisticRegression(object):
         return D
 
     def logLoss(self, w, X, T):
-        """ Compute a regularized log loss (cross-entropy) for samples in X
-            virtual labels in T and parameters w. The regularization parameter
-            is taken from the object attributes.
-            It assumes a multi-class softmax classifier.
-            This method implements two different log-losses, that are specified
-            in the object's attribute self.method:
-                'OSL' :Optimistic Superset Loss. It assumes that the true label
-                       is the nonzero weak label with highest posterior
-                       probability given the model.
-                'VLL' :Virtual Labels Loss.
-            The regularization parameter is set in set.params['alpha']
+        """
+        Compute a regularized log loss (cross-entropy) for samples in X
+        virtual labels in T and parameters w. The regularization parameter is
+        taken from the object attributes.
+        It assumes a multi-class softmax classifier.
+        This method implements two different log-losses, that are specified in
+        the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+        The regularization parameter is set in set.params['alpha']
 
-            Args:
-                :w:  1-D nympy array. It is a flattened versio of the weigh
-                     matrix of the multiclass softmax. This 1-D arrangement
-                     is required by the scipy optimizer that will use this
-                     method.
-                :X:  Input data. An (NxD) matrix of N samples with dimension D
-                :T:  Target class. An (NxC) array of target vectors.
-                     The meaning and format of each target vector t depends
-                     on the selected log-loss version:
-                     - 'OSL': t is a binary vector.
-                     - 'VLL': t is a virtual label vector
-            Returns:
-                :L:  Log-loss
+        Args:
+            :w:  1-D nympy array. A flattened version of the weight matrix of
+                 the multiclass softmax. This 1-D arrangement is required by
+                 the scipy optimizer that will use this method.
+            :X:  Input data. An (NxD) matrix of N samples with dimension D
+            :T:  Target class. An (NxC) array of target vectors.
+                 The meaning and format of each target vector t depends
+                 on the selected log-loss version:
+                 - 'OSL': t is a binary vector.
+                 - 'VLL': t is a virtual label vector
+        Returns:
+            :L:  Log-loss
         """
 
         n_dim = X.shape[1]
@@ -158,27 +160,27 @@ class WeakLogisticRegression(object):
 
     def gradLogLoss(self, w, X, T):
 
-        """ Compute the gradient of the regularized log loss (cross-entropy)
-            for samples in X, virtual labels in T and parameters w.
-            The regularization parameter is taken from the object attributes.
-            It assumes a multi-class softmax classifier.
-            This method implements gradients for two different log-losses, that
-            are specified in the object's attribute self.method:
-                'OSL' :Optimistic Superset Loss. It assumes that the true label
-                       is the nonzero weak label with highest posterior
-                       probability given the model.
-                'VLL' :Virtual Labels Loss.
-            The regularization parameter is set in set.params['alpha']
+        """
+        Compute the gradient of the regularized log loss (cross-entropy) for
+        samples in X, virtual labels in T and parameters w.
+        The regularization parameter is taken from the object attributes.
+        It assumes a multi-class softmax classifier.
+        This method implements gradients for two different log-losses, that are
+        specified in the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+        The regularization parameter is set in set.params['alpha']
 
-            Args:
-                :w:  1-D nympy array. It is a flattened versio of the weigh
-                     matrix of the multiclass softmax. This 1-D arrangement
-                     is required by the scipy optimizer that will use this
-                     method.
+        Args:
+            :w:  1-D nympy array. A flattened version of the weight matrix of
+                 the multiclass softmax. This 1-D arrangement is required by
+                 the scipy optimizer that will use this method.
                 :X:  Input data. An (NxD) matrix of N samples with dimension D
                 :T:  Target class. An (NxC) array of target vectors.
-                     The meaning and format of each target vector t depends
-                     on the selected log-loss version:
+                     The meaning and format of each target vector t depends on
+                     the selected log-loss version:
                      - 'OSL': t is a binary vector.
                      - 'VLL': t is a virtual label vector
             Returns:
@@ -201,9 +203,8 @@ class WeakLogisticRegression(object):
         return G.reshape((n_dim*self.n_classes))
 
     def gd(self, X, T):
-
-        """ Trains a logistic regression classifier by a gradient descent
-            method
+        """
+        Trains a logistic regression classifier by a gradient descent method
         """
 
         # Initialize variables
@@ -224,8 +225,8 @@ class WeakLogisticRegression(object):
 
     def fit(self, X, Y):
         """
-        Fits a logistic regression model to instances in X given
-        the labels in Y
+        Fits a logistic regression model to instances in X given the labels in
+        Y
 
         Args:
             :X :Input data, numpy array of shape[n_samples, n_features]

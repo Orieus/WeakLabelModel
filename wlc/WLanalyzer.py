@@ -20,7 +20,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
         v = y
 
     # Sample size and data dimension
-    ns, nf = X.shape           
+    ns, nf = X.shape
 
     # ## Initialize aggregate results
     Pe_tr = [0] * n_sim

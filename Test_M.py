@@ -203,7 +203,7 @@ for i, tag in enumerate(tag_list):
 plt.legend()
 plt.xlabel('Parameter of the mixing model')
 plt.ylabel('Error rate')
-plt.savefig('PeCV' + datasetName +  optim + '.png')
+plt.savefig('PeCV' + datasetName + optim + '.png')
 plt.show(block=False)
 
 # Plot error barplots.
