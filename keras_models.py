@@ -52,7 +52,7 @@ def brier_loss(y_true, y_pred):
 # FIXME add the parameter rho to the gradient descent
 class KerasModel(object):
     def __init__(self, input_size, output_size, optimizer='SGD',
-                 batch_size=100, class_weights=None, params={}):
+                 batch_size=None, class_weights=None, params={}):
         self.input_size = input_size
         self.output_size = output_size
         self.batch_size = batch_size
@@ -65,10 +65,10 @@ class KerasModel(object):
             class_weights = np.ones(output_size)
         self.class_weights = class_weights
 
-        wbl = partial(w_brier_loss, class_weights=class_weights)
-        wbl.__name__ = 'w_brier_loss'
-        # wbl = brier_loss
-        # wbl.__name__ = 'brier_loss'
+        #wbl = partial(w_brier_loss, class_weights=class_weights)
+        #wbl.__name__ = 'w_brier_loss'
+        wbl = brier_loss
+        wbl.__name__ = 'brier_loss'
 
         # FIXME adjust the parameter rho
         if 'rho' in self.params:
@@ -112,24 +112,32 @@ class KerasModel(object):
 
         batch_size = self.batch_size if batch_size is None else batch_size
 
+        if batch_size is None:
+            batch_size = train_x.shape[0]
+
         return self.model.fit(train_x, train_y, batch_size=batch_size,
                               nb_epoch=nb_epoch, verbose=0)
 
-    def predict(self, X):
+    def predict(self, X, batch_size=None):
         # Compute posterior probability of class 1 for weights w.
-        p = self.predict_proba(X)
+        p = self.predict_proba(X, batch_size=batch_size)
 
         # Class
         D = np.argmax(p, axis=1)
 
         return D  # p, D
 
-    def predict_proba(self, test_x):
+    def predict_proba(self, test_x, batch_size=None):
         """
         This function finds the k closest instances to the unseen test data,
         and averages the train_labels of the closest instances.
         """
-        return self.model.predict(test_x, batch_size=self.batch_size)
+        batch_size = self.batch_size if batch_size is None else batch_size
+
+        if batch_size is None:
+            batch_size = test_x.shape[0]
+
+        return self.model.predict(test_x, batch_size=batch_size)
 
     def get_params(self, deep=True):
         # suppose this estimator has parameters "alpha" and "recursive"
