@@ -19,6 +19,8 @@ import wlc.WLweakener as wlw
 
 from testUtils import plot_data, plot_results, evaluateClassif
 
+import ipdb
+
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
@@ -31,18 +33,19 @@ np.random.seed(42)
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 400            # Sample size
+ns = 2000            # Sample size
 nf = 2              # Data dimension
-n_classes = 20      # Number of classes
+n_classes = 5      # Number of classes
 problem = 'blobs'   # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all AL algorithms
-n_sim = 10      # No. of simulation runs to average
-n_jobs = -1     # Number of CPUs to use (-1 means all CPUs)
+n_sim = 10         # No. of simulation runs to average
+n_jobs = -1        # Number of CPUs to use (-1 means all CPUs)
+loss = 'square'    # Loss function: square (brier score) or CE (cross entropy)
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
-n_it = 2*ns           # Number of iterations
+n_it = 4*ns           # Number of iterations
 
 # Parameters of the weak label model
 alpha = 0.8
@@ -70,7 +73,7 @@ print "======================================"
 #     shuffle=True, random_state=None)
 if problem == 'blobs':
     X, y = skd.make_blobs(n_samples=ns, n_features=nf, centers=n_classes,
-                          cluster_std=1.0, center_box=(-10.0, 10.0),
+                          cluster_std=0.2, center_box=(-10.0, 10.0),
                           shuffle=True, random_state=None)
 elif problem == 'gauss_quantiles':
     X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
@@ -86,6 +89,8 @@ M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
 z = wlw.generateWeak(y, M, n_classes)
 v = wlw.computeVirtual(z, n_classes, method=method)
 v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
+
+ipdb.set_trace()
 
 # Convert z to a list of binary lists (this is for the OSL alg)
 z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
@@ -119,7 +124,7 @@ Pe_tr = {}
 Pe_cv = {}
 Pe_tr_mean = {}
 Pe_cv_mean = {}
-params = {'rho': rho, 'n_it': n_it}
+params = {'rho': rho, 'n_it': n_it, 'loss': loss}
 tag_list = []
 
 # ###################

@@ -8,7 +8,7 @@
 
 import numpy as np
 import scipy as sp
-# import ipdb
+import ipdb
 import warnings
 
 
@@ -33,6 +33,10 @@ class WeakLogisticRegression(object):
             self.params['alpha'] = 0
         if self.method == "Mproper" and 'alpha' not in self.params:
             self.params['alpha'] = 0
+
+        # This is for backwards compatibility
+        if 'loss' not in self.params:
+            self.params['loss'] = 'CE'
 
     def softmax(self, x):
         """
@@ -107,6 +111,51 @@ class WeakLogisticRegression(object):
 
         return D
 
+    def squareLoss(self, w, X, T):
+        """
+        Compute a regularized square loss (a.k.a Brier score) for samples in X,
+        virtual labels in T and parameters w. The regularization parameter is
+        taken from the object attributes.
+        It assumes a multi-class softmax classifier.
+        This method implements two different log-losses, that are specified in
+        the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+        The regularization parameter is set in set.params['alpha']
+
+        Args:
+            :w:  1-D nympy array. A flattened version of the weight matrix of
+                 the multiclass softmax. This 1-D arrangement is required by
+                 the scipy optimizer that will use this method.
+            :X:  Input data. An (NxD) matrix of N samples with dimension D
+            :T:  Target class. An (NxC) array of target vectors.
+                 The meaning and format of each target vector t depends
+                 on the selected log-loss version:
+                 - 'OSL': t is a binary vector.
+                 - 'VLL': t is a virtual label vector
+        Returns:
+            :L:  Log-loss
+        """
+
+        n_dim = X.shape[1]
+        W2 = w.reshape((n_dim, self.n_classes))
+        logp = self.logsoftmax(np.dot(X, W2))
+        p = np.exp(logp)
+
+        if self.method == 'OSL':
+            D = self.hardmax(T*p)
+            L = np.sum((D - p)**2) / 2
+
+        else:
+            # Compute the square loss for virtual label vector T. I am
+            # assuming that there is no bias term is the square losss. Maybe
+            # I should verify it, though it do not this it would be relevant.
+            L = np.sum((T - p)**2) / 2
+
+        return L
+
     def logLoss(self, w, X, T):
         """
         Compute a regularized log loss (cross-entropy) for samples in X
@@ -158,6 +207,64 @@ class WeakLogisticRegression(object):
 
         return L
 
+    def loss(self, w, X, T):
+
+        if self.params['loss'] == 'CE':
+
+            L = self.logLoss(w, X, T)
+
+        elif self.params['loss'] == 'square':
+
+            L = self.squareLoss(w, X, T)
+
+        else:
+
+            exit('Unknown loss')
+
+        return L
+
+    def gradSquareLoss(self, w, X, T):
+
+        """
+        Compute the gradient of the square loss (Brier score) for
+        samples in X, virtual labels in T and parameters w.
+        It assumes a multi-class softmax classifier.
+        This method implements gradients for two different square losses, that
+        are specified in the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+
+        Args:
+            :w:  1-D nympy array. A flattened version of the weight matrix of
+                 the multiclass softmax. This 1-D arrangement is required by
+                 the scipy optimizer that will use this method.
+                :X:  Input data. An (NxD) matrix of N samples with dimension D
+                :T:  Target class. An (NxC) array of target vectors.
+                     The meaning and format of each target vector t depends on
+                     the selected log-loss version:
+                     - 'OSL': t is a binary vector.
+                     - 'VLL': t is a virtual label vector
+            Returns:
+                :G:  Gradient of the Log-loss
+        """
+
+        n_dim = X.shape[1]
+        W2 = w.reshape((n_dim, self.n_classes))
+        p = self.softmax(np.dot(X, W2))
+
+        if self.method == 'OSL':
+            D = self.hardmax(T*p)
+            Q = (p - D) * p
+        else:
+            Q = (p - T) * p
+
+        sumQ = np.sum(Q, axis=1, keepdims=True)
+        G = np.dot(X.T, Q - sumQ * p)
+
+        return G.reshape((n_dim*self.n_classes))
+
     def gradLogLoss(self, w, X, T):
 
         """
@@ -202,6 +309,22 @@ class WeakLogisticRegression(object):
 
         return G.reshape((n_dim*self.n_classes))
 
+    def gradLoss(self, w, X, T):
+
+        if self.params['loss'] == 'CE':
+
+            g = self.gradLogLoss(w, X, T)
+
+        elif self.params['loss'] == 'square':
+
+            g = self.gradSquareLoss(w, X, T)
+
+        else:
+
+            exit('Unknown loss')
+
+        return g
+
     def gd(self, X, T):
         """
         Trains a logistic regression classifier by a gradient descent method
@@ -217,7 +340,7 @@ class WeakLogisticRegression(object):
 
             w1 = W.reshape((n_dim*self.n_classes))
 
-            G = self.gradLogLoss(w1, X, T).reshape((n_dim, self.n_classes))
+            G = self.gradLoss(w1, X, T).reshape((n_dim, self.n_classes))
 
             W -= self.params['rho']*G
 
@@ -262,8 +385,8 @@ class WeakLogisticRegression(object):
         else:
             w0 = 1*np.random.randn(X.shape[1]*self.n_classes)
             res = sp.optimize.minimize(
-                self.logLoss, w0, args=(X, T), method=self.optimizer,
-                jac=self.gradLogLoss, hess=None, hessp=None, bounds=None,
+                self.loss, w0, args=(X, T), method=self.optimizer,
+                jac=self.gradLoss, hess=None, hessp=None, bounds=None,
                 constraints=(), tol=None, callback=None,
                 options={'disp': False, 'gtol': 1e-20,
                          'eps': 1.4901161193847656e-08, 'return_all': False,
