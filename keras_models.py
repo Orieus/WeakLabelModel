@@ -6,6 +6,7 @@
     Author: Miquel Perello-Nieto, Apr 2017
 """
 import numpy as np
+import scipy as sp
 
 import theano
 import theano.tensor as T
@@ -34,6 +35,12 @@ def w_brier_loss(y_true, y_pred, class_weights):
                   axis=-1)
 
 
+def osl_w_brier_loss(o, f, class_weights):
+    """f is the forecast and o is the original outcome"""
+    d = T.argmax(T.mul(o, f), axis=-1, keepdims=True)
+    return T.mean(T.dot(T.square(T.sub(f, d)), class_weights), axis=-1)
+
+
 def brier_loss(y_true, y_pred):
     """ Computes brier score for the given tensors
 
@@ -52,23 +59,34 @@ def brier_loss(y_true, y_pred):
 # FIXME add the parameter rho to the gradient descent
 class KerasModel(object):
     def __init__(self, input_size, output_size, optimizer='SGD',
-                 batch_size=None, class_weights=None, params={}):
+                 batch_size=None, class_weights=None, OSL=False, params={}):
         self.input_size = input_size
         self.output_size = output_size
         self.batch_size = batch_size
         self.params = params
         self.optimizer = optimizer
+        self.OSL = OSL
 
         model = self.create_model(input_size, output_size)
 
         if class_weights is None:
-            class_weights = np.ones(output_size)
-        self.class_weights = class_weights
+            self.class_weights = np.ones(output_size)
+        else:
+            self.class_weights = class_weights
 
-        #wbl = partial(w_brier_loss, class_weights=class_weights)
-        #wbl.__name__ = 'w_brier_loss'
-        wbl = brier_loss
-        wbl.__name__ = 'brier_loss'
+        if OSL is True:
+            # TODO try to use the osl loss
+            # loss = partial(osl_w_brier_loss, class_weights=self.class_weights)
+            # loss.__name__ = 'osl_w_brier_loss'
+            loss = partial(w_brier_loss, class_weights=self.class_weights)
+            loss.__name__ = 'w_brier_loss'
+        # #TODO test if the brier loss is correct
+        # elif class_weights is None:
+        #     loss = brier_loss
+        #     loss.__name__ = 'brier_loss'
+        else:
+            loss = partial(w_brier_loss, class_weights=self.class_weights)
+            loss.__name__ = 'w_brier_loss'
 
         # FIXME adjust the parameter rho
         if 'rho' in self.params:
@@ -91,7 +109,7 @@ class KerasModel(object):
         else:
             raise('Optimizer unknown: {}'.format(optimizer))
 
-        model.compile(loss=wbl, optimizer=keras_opt, metrics=['acc'])
+        model.compile(loss=loss, optimizer=keras_opt, metrics=['acc'])
 
         self.model = model
 
@@ -100,6 +118,21 @@ class KerasModel(object):
         model.add(Dense(output_size, input_shape=(input_size,)))
         model.add(Activation('softmax'))
         return model
+
+    def hardmax(self, Z):
+
+        """ Transform each row in array Z into another row with zeroes in the
+            non-maximum values and 1/nmax on the maximum values, where nmax is
+            the number of elements taking the maximum value
+        """
+
+        D = sp.equal(Z, np.max(Z, axis=1, keepdims=True))
+
+        # In case more than one value is equal to the maximum, the output
+        # of hardmax is nonzero for all of them, but normalized
+        D = D/np.sum(D, axis=1, keepdims=True)
+
+        return D
 
     def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
             nb_epoch=1):
@@ -114,6 +147,20 @@ class KerasModel(object):
 
         if batch_size is None:
             batch_size = train_x.shape[0]
+
+        # TODO try to use the OSL loss instead of iterating over epochs
+        if self.OSL:
+            history = []
+            for n in range(nb_epoch):
+                predictions = self.model.predict_proba(train_x,
+                                                       batch_size=batch_size,
+                                                       verbose=0)
+                train_osl_y = self.hardmax(np.multiply(train_y, predictions))
+
+                history.append(self.model.fit(train_x, train_osl_y,
+                                              batch_size=batch_size,
+                                              nb_epoch=1, verbose=0))
+            return history
 
         return self.model.fit(train_x, train_y, batch_size=batch_size,
                               nb_epoch=nb_epoch, verbose=0)
@@ -143,7 +190,8 @@ class KerasModel(object):
         # suppose this estimator has parameters "alpha" and "recursive"
         return {"input_size": self.input_size, "output_size": self.output_size,
                 "optimizer": self.optimizer, "batch_size": self.batch_size,
-                "class_weights": self.class_weights, "params": self.params}
+                "class_weights": self.class_weights, "params": self.params,
+                "OSL": self.OSL}
 
 
 class KerasWeakLogisticRegression(KerasModel):
