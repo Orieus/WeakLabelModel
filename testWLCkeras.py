@@ -36,11 +36,10 @@ np.random.seed(42)
 ns = 400           # Sample size
 nf = 2             # Data dimension
 n_classes = 10      # Number of classes
-problem = 'gauss_quantiles'  # 'blobs' | 'gauss_quantiles' | 'digits'
+problem = 'blobs'  # 'blobs' | 'gauss_quantiles' | 'digits'
 
 # Common parameters for all AL algorithms
 n_sim = 10       # No. of simulation runs to average
-n_jobs = -1      # Number of CPUs to use (-1 means all CPUs)
 
 # Parameters of the classiffier fit method
 rho = float(1)/5000    # Learning step
@@ -120,6 +119,7 @@ print 'Weak Label Analysis'
 
 wLR = {}
 title = {}
+n_jobs = {}
 x_dict = {}
 y_dict = {}
 v_dict = {}
@@ -136,6 +136,7 @@ tag = 'Superv-BFGS'
 title[tag] = 'Learning from clean labels with BFGS:'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS', params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = y
@@ -147,6 +148,7 @@ tag = 'OSL-BFGS'
 title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
                                       optimizer='BFGS')
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = z_bin
@@ -158,6 +160,7 @@ tag = 'Mproper-GD'
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
@@ -169,6 +172,7 @@ tag = 'Mproper-BFGS'
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
@@ -180,6 +184,7 @@ tag = 'VLL-GD'
 title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v
@@ -191,6 +196,7 @@ tag = 'VLLc-BFGS'
 title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS')
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = z_bin
@@ -205,6 +211,7 @@ wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
                                           params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = y_bin
@@ -220,6 +227,7 @@ wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           optimizer='SGD',
                                           OSL=True,
                                           params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = z_bin
@@ -234,6 +242,7 @@ wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
                                           params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v
@@ -248,6 +257,7 @@ wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
                                           params=params)
+n_jobs[tag] = -1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
@@ -263,6 +273,7 @@ wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             optimizer='SGD',
                                             OSL=True,
                                             params=params)
+n_jobs[tag] = 1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = z_bin
@@ -277,6 +288,7 @@ wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',
                                             params=params)
+n_jobs[tag] = 1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v
@@ -291,6 +303,7 @@ wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',
                                             params=params)
+n_jobs[tag] = 1
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
@@ -302,7 +315,7 @@ for i, tag in enumerate(tag_list):
     print tag
     Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_dict[tag],
                                              y_dict[tag], v_dict[tag],
-                                             n_sim=n_sim)
+                                             n_sim=n_sim, n_jobs=n_jobs[tag])
     plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
 
 # ############
