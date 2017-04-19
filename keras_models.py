@@ -157,9 +157,9 @@ class KerasModel(object):
                                                        verbose=0)
                 train_osl_y = self.hardmax(np.multiply(train_y, predictions))
 
-                history.append(self.model.fit(train_x, train_osl_y,
-                                              batch_size=batch_size,
-                                              nb_epoch=1, verbose=0))
+                h = self.model.fit(train_x, train_osl_y, batch_size=batch_size,
+                                   nb_epoch=1, verbose=0)
+                history.append(h)
             return history
 
         return self.model.fit(train_x, train_y, batch_size=batch_size,
