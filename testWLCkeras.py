@@ -33,10 +33,10 @@ np.random.seed(42)
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 1000           # Sample size
+ns = 400           # Sample size
 nf = 2             # Data dimension
-n_classes = 20      # Number of classes
-problem = 'blobs'  # 'blobs' | 'gauss_quantiles' | 'digits'
+n_classes = 10      # Number of classes
+problem = 'gauss_quantiles'  # 'blobs' | 'gauss_quantiles' | 'digits'
 
 # Common parameters for all AL algorithms
 n_sim = 10       # No. of simulation runs to average
@@ -251,6 +251,21 @@ wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
+tag_list.append(tag)
+
+# ############################################
+# Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+tag = 'Keras-MLP-OSL-SGD'
+title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
+params = {'n_it': n_it}
+wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+                                            output_size=n_classes,
+                                            optimizer='SGD',
+                                            OSL=True,
+                                            params=params)
+x_dict[tag] = X
+y_dict[tag] = y
+v_dict[tag] = z_bin
 tag_list.append(tag)
 
 # ############################################
