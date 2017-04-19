@@ -184,7 +184,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         preds = skcv.cross_val_predict(classif, X, v, cv=n_folds, verbose=0,
                                        n_jobs=n_jobs)
 
-        # Estimate error rates:
+        # Estimate error rates:s
         Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
 
         print ('\tAveraging {0} simulations. Estimated time to finish '

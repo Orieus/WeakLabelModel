@@ -60,7 +60,6 @@ class WeakLogisticRegression(object):
             :Y_tr :Target vector relative to Z_tr, with shape [n_samples]
         """
 
-        
         # Data dimension
         n_dim = Z_tr.shape[1]
 
