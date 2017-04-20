@@ -14,8 +14,9 @@ import pandas as pd
 import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
-from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import Imputer
+from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
 
 # My modules
@@ -48,9 +49,11 @@ diary.add_notebook('validation')
 ns = 2000           # Sample size
 nf = 2             # Data dimension
 n_classes = 10      # Number of classes
-problem = 'wine'  # 'blobs' | 'gauss_quantiles'
+problem = 'iris'  # 'blobs' | 'gauss_quantiles'
 openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
-              'vehicle': 54, 'vowel': 307, 'wine': 187}
+              'vehicle': 54, 'vowel': 307, 'wine': 187, 'abalone': 1557,
+              'balance-scale': 11, 'car': 21, 'ecoli': 39, 'satimage': 182}
+openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
 
 # Common parameters for all AL algorithms
 n_sim = 10       # No. of simulation runs to average
@@ -91,7 +94,8 @@ if problem in openml_ids.keys():
     X, y, categorical = dataset.get_data(
                                     target=dataset.default_target_attribute,
                                     return_categorical_indicator=True)
-    enc = OneHotEncoder(categorical_features=categorical)
+    # TODO change NaN in categories for another category
+    enc = OneHotEncoder(categorical_features=categorical, sparse=False)
     X = enc.fit_transform(X)  # Categorical to binary
     ns = X.shape[0]           # Sample size
     nf = X.shape[1]             # Data dimension
@@ -111,10 +115,22 @@ elif problem == 'digits':
     n_it = 10            # Number of iterations
 else:
     raise("Problem type unknown: {}".format(problem))
-X = StandardScaler().fit_transform(X)
+X = Imputer(missing_values='NaN', strategy='mean').fit_transform(X)
+X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
 
 # Convert y into a binary matrix
 y_bin = label_binarize(y, range(n_classes))
+
+# ## Report data used in the simulation
+print '----------------'
+print 'Simulation data:'
+print '    Dataset name: {0}'.format(problem)
+print '    Sample size: {0}'.format(ns)
+print '    Number of features: {0}'.format(nf)
+print '    Number of classes: {0}'.format(n_classes)
+
+diary.add_entry('dataset', ['name', problem, 'size', ns, 'n_features', nf,
+                            'n_classes', n_classes])
 
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
@@ -132,17 +148,6 @@ if nf >= 2:
 
 ######################
 # ## Select classifier
-
-# ## Report data used in the simulation
-print '----------------'
-print 'Simulation data:'
-print '    Dataset name: {0}'.format(problem)
-print '    Sample size: {0}'.format(ns)
-print '    Number of features: {0}'.format(nf)
-print '    Number of classes: {0}'.format(n_classes)
-
-diary.add_entry('dataset', ['name', problem, 'size', ns, 'n_features', nf,
-                            'n_classes', n_classes])
 
 ############################################################################
 # ## PART II: AL algorithm analysis                                      ###
