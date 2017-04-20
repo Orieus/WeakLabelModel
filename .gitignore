@@ -64,3 +64,4 @@ target/
 *.swo
 # ignore figures
 figures/
+results/

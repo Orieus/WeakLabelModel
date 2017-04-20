@@ -7,6 +7,7 @@
 """
 
 # External modules
+import os
 import warnings
 
 import pandas as pd
@@ -23,6 +24,8 @@ import wlc.WLweakener as wlw
 import keras_models as km
 from testUtils import plot_data, plot_results, evaluateClassif
 
+from diary import Diary
+
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
@@ -31,14 +34,21 @@ np.random.seed(42)
 ###############################################################################
 
 ############################
+# ## Create a Diary for all the logs and results
+diary = Diary(name='testWLCkeras', path='results', overwrite=False,
+              image_format='png', fig_format='svg')
+diary.add_notebook('dataset')
+diary.add_notebook('validation')
+
+############################
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
 ns = 2000           # Sample size
 nf = 2             # Data dimension
 n_classes = 10      # Number of classes
-problem = 'blobs'  # 'blobs' | 'gauss_quantiles'
-openml_ids = {'iris':61, 'pendigits':32, 'glass':41}
+problem = 'iris'  # 'blobs' | 'gauss_quantiles'
+openml_ids = {'iris':61, 'pendigits':32, 'glass':41, 'segment':36}
 
 # Common parameters for all AL algorithms
 n_sim = 10       # No. of simulation runs to average
@@ -111,7 +121,8 @@ z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 
 # If dimension is 2, we draw a scatterplot
 if nf >= 2:
-    plot_data(X, y)
+    fig = plot_data(X, y, save=False)
+    diary.save_figure(fig, filename='data_x0_x1')
 
 ######################
 # ## Select classifier
@@ -398,7 +409,9 @@ for i, tag in enumerate(tag_list):
     Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], x_dict[tag],
                                              y_dict[tag], v_dict[tag],
                                              n_sim=n_sim, n_jobs=n_jobs[tag])
-    plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim)
+    fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim,
+            save=False)
+    diary.save_figure(fig, filename='results')
 
     rows = [[tag, title[tag], n_jobs[tag], loss, j, tr_l, cv_l]
             for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]
@@ -407,7 +420,7 @@ for i, tag in enumerate(tag_list):
     appended_dfs.append(df_aux)
 
 df = pd.concat(appended_dfs, axis=0, ignore_index=True)
-df.to_csv('pd_df_results.csv')
+df.to_csv(os.path.join(diary.path, 'pd_df_results.csv'))
 
 # ############
 # Print results.
