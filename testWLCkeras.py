@@ -12,8 +12,11 @@ import warnings
 
 import pandas as pd
 import numpy as np
+from optparse import OptionParser
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
 
@@ -28,6 +31,41 @@ from diary import Diary
 
 warnings.filterwarnings("ignore")
 np.random.seed(42)
+
+def parse_arguments():
+    parser = OptionParser()
+    parser.add_option('-p', '--problem', dest='problem', default='blobs',
+                      type=str, help='Dataset or toy example to test.')
+    # Parameters for sklearn synthetic data
+    parser.add_option('-s', '--n-samples', dest='ns', default=400,
+                      type=int, help='Number of samples if toy dataset.')
+    parser.add_option('-f', '--n-features', dest='nf', default=2,
+                      type=int, help='Number of features if toy dataset.')
+    parser.add_option('-c', '--n-classes', dest='n_classes', default=10,
+                      type=int, help='Number of classes if toy dataset.')
+    # Common parameters for all AL algorithms
+    parser.add_option('-m', '--n-simulations', dest='n_sim', default=10,
+                      type=int, help='Number of times to run every model.')
+    parser.add_option('-l', '--loss', dest='loss', default='square',
+                      type=str, help=('Loss function to minimize between '
+                                      'square (brier score) or CE (cross '
+                                      'entropy)'))
+    # Parameters of the classiffier fit method
+    parser.add_option('-r', '--rho', dest='rho', default=0.0002,
+                      type=float, help='Learning step for the Gradient Descent')
+    parser.add_option('-i', '--n-iterations', dest='n_it', default=1000,
+                      type=int, help=('Number of iterations of '
+                                      'Gradient Descent.'))
+    parser.add_option('-e', '--method', dest='method', default='quasi_IPL',
+                      type=str, help=('Method to generate the matrix M.'
+                                      'One of the following: quasi_IPL, '
+                                      'random_noise, noisy'))
+    parser.add_option('-t', '--method2', dest='method2', default='Mproper',
+                      type=str, help=('Method to impute the matrix M.'
+                                      'One of the following: Mproper'))
+    return parser.parse_args()
+
+(options, args) = parse_arguments()
 
 ###############################################################################
 # ## MAIN #####################################################################
@@ -44,27 +82,28 @@ diary.add_notebook('validation')
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 2000           # Sample size
-nf = 2             # Data dimension
-n_classes = 10      # Number of classes
-problem = 'iris'  # 'blobs' | 'gauss_quantiles'
-openml_ids = {'iris':61, 'pendigits':32, 'glass':41, 'segment':36}
-
-# Common parameters for all AL algorithms
-n_sim = 10       # No. of simulation runs to average
-loss = 'square'    # Loss function: square (brier score) or CE (cross entropy)
-
-# Parameters of the classiffier fit method
-rho = float(1)/5000    # Learning step
-n_it = 2*ns            # Number of iterations
+openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
+              'vehicle': 54, 'vowel': 307, 'wine': 187, 'abalone': 1557,
+              'balance-scale': 11, 'car': 21, 'ecoli': 39, 'satimage': 182}
+openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
 
 # Parameters of the weak label model
 alpha = 0.8
 beta = 0.2
 gamma = 0.2
-method = 'quasi_IPL' # 'quasi_IPL' | 'random_noise' | 'noisy'
-method2 = 'Mproper'
-# method = 'quasi_IPL_old'
+
+problem = options.problem
+ns = options.ns
+nf = options.nf
+n_classes = options.n_classes
+
+n_sim = options.n_sim
+loss = options.loss
+rho = options.rho
+n_it = options.n_it
+
+method = options.method
+method2 = options.method2
 
 #####################
 # ## A title to start
@@ -86,7 +125,12 @@ if problem in openml_ids.keys():
     import openml
     dataset_id = openml_ids[problem]
     dataset = openml.datasets.get_dataset(dataset_id)
-    X, y = dataset.get_data(target=dataset.default_target_attribute)
+    X, y, categorical = dataset.get_data(
+                                    target=dataset.default_target_attribute,
+                                    return_categorical_indicator=True)
+    # TODO change NaN in categories for another category
+    enc = OneHotEncoder(categorical_features=categorical, sparse=False)
+    X = enc.fit_transform(X)  # Categorical to binary
     ns = X.shape[0]           # Sample size
     nf = X.shape[1]             # Data dimension
     n_classes = y.max()+1      # Number of classes
@@ -105,10 +149,22 @@ elif problem == 'digits':
     n_it = 10            # Number of iterations
 else:
     raise("Problem type unknown: {}".format(problem))
-X = StandardScaler().fit_transform(X)
+X = Imputer(missing_values='NaN', strategy='mean').fit_transform(X)
+X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
 
 # Convert y into a binary matrix
 y_bin = label_binarize(y, range(n_classes))
+
+# ## Report data used in the simulation
+print '----------------'
+print 'Simulation data:'
+print '    Dataset name: {0}'.format(problem)
+print '    Sample size: {0}'.format(ns)
+print '    Number of features: {0}'.format(nf)
+print '    Number of classes: {0}'.format(n_classes)
+
+diary.add_entry('dataset', ['name', problem, 'size', ns, 'n_features', nf,
+                'n_classes', n_classes, 'method', method, 'method2', method2])
 
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
@@ -122,16 +178,10 @@ z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 # If dimension is 2, we draw a scatterplot
 if nf >= 2:
     fig = plot_data(X, y, save=False)
-    diary.save_figure(fig, filename='data_x0_x1')
+    diary.save_figure(fig)
 
 ######################
 # ## Select classifier
-
-# ## Report data used in the simulation
-print '----------------'
-print 'Simulation data:'
-print '    Sample size: n = {0}'.format(ns)
-print '    Data dimension = {0}'.format(X.shape[1])
 
 ############################################################################
 # ## PART II: AL algorithm analysis                                      ###
@@ -244,7 +294,7 @@ tag_list.append(tag)
 # Virtual Label Learning with BFGS and regularization
 tag = 'VLL-BFGS'
 title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This value for alpha is an heuristic
+params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS', params=params)
 n_jobs[tag] = -1
@@ -410,8 +460,8 @@ for i, tag in enumerate(tag_list):
                                              y_dict[tag], v_dict[tag],
                                              n_sim=n_sim, n_jobs=n_jobs[tag])
     fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim,
-            save=False)
-    diary.save_figure(fig, filename='results')
+                       save=False)
+    diary.save_figure(fig)
 
     rows = [[tag, title[tag], n_jobs[tag], loss, j, tr_l, cv_l]
             for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]

@@ -109,18 +109,21 @@ class Diary(object):
 
     # TODO add support to matplotlib.pyplot.figure or add an additional
     # function
-    def save_figure(self, plt, filename='', extension=None):
+    def save_figure(self, fig, filename=None, extension=None):
         if extension == None:
             extension = self.fig_format
-        plt.savefig(os.path.join(self.path_figures,
+        fig.tight_layout()
+        if filename is None:
+            filename = fig.get_label()
+        fig.savefig(os.path.join(self.path_figures,
                                 "{}_{}.{}".format(filename, self.entry_number,
                                                   extension)))
 
     def __str__(self):
-        return ("Date: {}\nName : {}\nPath : {}\n"
-                "Overwrite : {}\nImage_format : {}\n"
+        return ("Date: {}\nName : {}\nPath : {}\nOverwrite : {}\n"
+                "Image_format : {}\nFigure_format : {}"
                 "").format(self.creation_date, self.name, self.path,
-                        self.overwrite, self.image_format)
+                        self.overwrite, self.image_format, self.fig_format)
 
 if __name__ == "__main__":
     diary = Diary(name='world', path='hello', overwrite=False)
