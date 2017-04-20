@@ -15,6 +15,7 @@ import numpy as np
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import label_binarize
 
 # My modules
@@ -47,8 +48,9 @@ diary.add_notebook('validation')
 ns = 2000           # Sample size
 nf = 2             # Data dimension
 n_classes = 10      # Number of classes
-problem = 'iris'  # 'blobs' | 'gauss_quantiles'
-openml_ids = {'iris':61, 'pendigits':32, 'glass':41, 'segment':36}
+problem = 'wine'  # 'blobs' | 'gauss_quantiles'
+openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
+              'vehicle': 54, 'vowel': 307, 'wine': 187}
 
 # Common parameters for all AL algorithms
 n_sim = 10       # No. of simulation runs to average
@@ -62,7 +64,7 @@ n_it = 2*ns            # Number of iterations
 alpha = 0.8
 beta = 0.2
 gamma = 0.2
-method = 'quasi_IPL' # 'quasi_IPL' | 'random_noise' | 'noisy'
+method = 'quasi_IPL'    # 'quasi_IPL' | 'random_noise' | 'noisy'
 method2 = 'Mproper'
 # method = 'quasi_IPL_old'
 
@@ -86,7 +88,11 @@ if problem in openml_ids.keys():
     import openml
     dataset_id = openml_ids[problem]
     dataset = openml.datasets.get_dataset(dataset_id)
-    X, y = dataset.get_data(target=dataset.default_target_attribute)
+    X, y, categorical = dataset.get_data(
+                                    target=dataset.default_target_attribute,
+                                    return_categorical_indicator=True)
+    enc = OneHotEncoder(categorical_features=categorical)
+    X = enc.fit_transform(X)  # Categorical to binary
     ns = X.shape[0]           # Sample size
     nf = X.shape[1]             # Data dimension
     n_classes = y.max()+1      # Number of classes
@@ -122,7 +128,7 @@ z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
 # If dimension is 2, we draw a scatterplot
 if nf >= 2:
     fig = plot_data(X, y, save=False)
-    diary.save_figure(fig, filename='data_x0_x1')
+    diary.save_figure(fig)
 
 ######################
 # ## Select classifier
@@ -130,8 +136,13 @@ if nf >= 2:
 # ## Report data used in the simulation
 print '----------------'
 print 'Simulation data:'
-print '    Sample size: n = {0}'.format(ns)
-print '    Data dimension = {0}'.format(X.shape[1])
+print '    Dataset name: {0}'.format(problem)
+print '    Sample size: {0}'.format(ns)
+print '    Number of features: {0}'.format(nf)
+print '    Number of classes: {0}'.format(n_classes)
+
+diary.add_entry('dataset', ['name', problem, 'size', ns, 'n_features', nf,
+                            'n_classes', n_classes])
 
 ############################################################################
 # ## PART II: AL algorithm analysis                                      ###
@@ -244,7 +255,7 @@ tag_list.append(tag)
 # Virtual Label Learning with BFGS and regularization
 tag = 'VLL-BFGS'
 title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This value for alpha is an heuristic
+params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
                                       optimizer='BFGS', params=params)
 n_jobs[tag] = -1
@@ -410,8 +421,8 @@ for i, tag in enumerate(tag_list):
                                              y_dict[tag], v_dict[tag],
                                              n_sim=n_sim, n_jobs=n_jobs[tag])
     fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes, n_sim,
-            save=False)
-    diary.save_figure(fig, filename='results')
+                       save=False)
+    diary.save_figure(fig)
 
     rows = [[tag, title[tag], n_jobs[tag], loss, j, tr_l, cv_l]
             for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]
