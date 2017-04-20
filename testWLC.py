@@ -51,7 +51,7 @@ n_it = 4*ns           # Number of iterations
 alpha = 0.8
 beta = 0.2
 gamma = 0.2
-method = 'quasi_IPL'
+method = 'quasi_IPL' # 'quasi_IPL' | 'random_noise' | 'noisy'
 method2 = 'Mproper'
 # method = 'quasi_IPL_old'
 
@@ -187,7 +187,7 @@ tag_list.append(tag)
 tag = 'Mproper-BFGS'
 title[tag] = 'M-proper loss with Gradient Descent'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                      optimizer='BFGS')
+                                      optimizer='BFGS', params=params)
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v2
@@ -208,9 +208,9 @@ tag_list.append(tag)
 # Virtual Label Learning with BFGS and regularization
 tag = 'VLL-BFGS'
 title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-params = {'alpha': (2.0 + nf)/2}    # This value for alpha is an heuristic
+params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This value for alpha is an heuristic
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                      optimizer='BFGS')
+                                      optimizer='BFGS', params=params)
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = v
@@ -220,7 +220,7 @@ tag_list.append(tag)
 # Virtual Label Learning with Gradient Descent
 tag = 'VLLc-GD'
 title[tag] = 'CC-VLL with Gradient Descent'
-params = {'rho': rho, 'n_it': n_it}
+params = {'rho': rho, 'n_it': n_it, 'loss': loss}
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL', optimizer='GD',
                                       params=params)
 x_dict[tag] = X
@@ -233,7 +233,7 @@ tag_list.append(tag)
 tag = 'VLLc-BFGS'
 title[tag] = 'CC-VLL with BFGS'
 wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                      optimizer='BFGS')
+                                      optimizer='BFGS', params=params)
 x_dict[tag] = X
 y_dict[tag] = y
 v_dict[tag] = z_bin

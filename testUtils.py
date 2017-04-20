@@ -29,7 +29,7 @@ def savefig(fig, path='figures', prefix='weak_labels_', extension='svg'):
     fig.savefig(os.path.join(path, filename))
 
 
-def plot_data(x, y):
+def plot_data(x, y, loc='best', save=True):
     fig = newfig('data')
     ax = fig.add_subplot(111)
     ax.scatter(x[:, 0], x[:, 1], c=y, s=50, cmap='Paired')
@@ -38,7 +38,10 @@ def plot_data(x, y):
     ax.set_title('Labeled dataset')
     ax.axis('equal')
     ax.grid(True)
-    savefig(fig)
+    ax.legend(loc=loc)
+    if save:
+        savefig(fig)
+    return fig
 
 
 def get_grid(X, delta=1.0):
@@ -95,7 +98,8 @@ def plot_data_predictions(fig, x, y, Z, MX1, MX2, x_predict=None, notes=None,
     ax.legend(loc=loc)
 
 
-def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
+def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim, loc='best',
+        save=True):
     # Config plots.
     font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
     matplotlib.rc('font', **font)
@@ -114,9 +118,11 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim):
     ax.set_xticks(range(1, 1 + len(tag_list)))
     ax.set_xticklabels(tag_list, rotation=45, ha='right')
     ax.set_ylim([-0.01, 1.01])
-    ax.legend(['training', 'validation'])
+    ax.legend(['training', 'validation'], loc=loc)
     ax.grid(True)
-    savefig(fig)
+    if save:
+        savefig(fig)
+    return fig
 
 
 def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
