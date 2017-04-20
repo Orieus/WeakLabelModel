@@ -164,7 +164,7 @@ print '    Number of features: {0}'.format(nf)
 print '    Number of classes: {0}'.format(n_classes)
 
 diary.add_entry('dataset', ['name', problem, 'size', ns, 'n_features', nf,
-                            'n_classes', n_classes])
+                'n_classes', n_classes, 'method', method, 'method2', method2])
 
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
