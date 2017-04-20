@@ -12,6 +12,7 @@ import warnings
 
 import pandas as pd
 import numpy as np
+from optparse import OptionParser
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
 from sklearn.preprocessing import OneHotEncoder
@@ -31,6 +32,41 @@ from diary import Diary
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
+def parse_arguments():
+    parser = OptionParser()
+    parser.add_option('-p', '--problem', dest='problem', default='blobs',
+                      type=str, help='Dataset or toy example to test.')
+    # Parameters for sklearn synthetic data
+    parser.add_option('-s', '--n-samples', dest='ns', default=400,
+                      type=int, help='Number of samples if toy dataset.')
+    parser.add_option('-f', '--n-features', dest='nf', default=2,
+                      type=int, help='Number of features if toy dataset.')
+    parser.add_option('-c', '--n-classes', dest='n_classes', default=10,
+                      type=int, help='Number of classes if toy dataset.')
+    # Common parameters for all AL algorithms
+    parser.add_option('-m', '--n-simulations', dest='n_sim', default=10,
+                      type=int, help='Number of times to run every model.')
+    parser.add_option('-l', '--loss', dest='loss', default='square',
+                      type=str, help=('Loss function to minimize between '
+                                      'square (brier score) or CE (cross '
+                                      'entropy)'))
+    # Parameters of the classiffier fit method
+    parser.add_option('-r', '--rho', dest='rho', default=0.0002,
+                      type=float, help='Learning step for the Gradient Descent')
+    parser.add_option('-i', '--n-iterations', dest='n_it', default=1000,
+                      type=int, help=('Number of iterations of '
+                                      'Gradient Descent.'))
+    parser.add_option('-e', '--method', dest='method', default='quasi_IPL',
+                      type=str, help=('Method to generate the matrix M.'
+                                      'One of the following: quasi_IPL, '
+                                      'random_noise, noisy'))
+    parser.add_option('-t', '--method2', dest='method2', default='Mproper',
+                      type=str, help=('Method to impute the matrix M.'
+                                      'One of the following: Mproper'))
+    return parser.parse_args()
+
+(options, args) = parse_arguments()
+
 ###############################################################################
 # ## MAIN #####################################################################
 ###############################################################################
@@ -46,30 +82,28 @@ diary.add_notebook('validation')
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-ns = 2000           # Sample size
-nf = 2             # Data dimension
-n_classes = 10      # Number of classes
-problem = 'iris'  # 'blobs' | 'gauss_quantiles'
 openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
               'vehicle': 54, 'vowel': 307, 'wine': 187, 'abalone': 1557,
               'balance-scale': 11, 'car': 21, 'ecoli': 39, 'satimage': 182}
 openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
 
-# Common parameters for all AL algorithms
-n_sim = 10       # No. of simulation runs to average
-loss = 'square'    # Loss function: square (brier score) or CE (cross entropy)
-
-# Parameters of the classiffier fit method
-rho = float(1)/5000    # Learning step
-n_it = 2*ns            # Number of iterations
-
 # Parameters of the weak label model
 alpha = 0.8
 beta = 0.2
 gamma = 0.2
-method = 'quasi_IPL'    # 'quasi_IPL' | 'random_noise' | 'noisy'
-method2 = 'Mproper'
-# method = 'quasi_IPL_old'
+
+problem = options.problem
+ns = options.ns
+nf = options.nf
+n_classes = options.n_classes
+
+n_sim = options.n_sim
+loss = options.loss
+rho = options.rho
+n_it = options.n_it
+
+method = options.method
+method2 = options.method2
 
 #####################
 # ## A title to start
