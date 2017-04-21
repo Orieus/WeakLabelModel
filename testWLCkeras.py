@@ -32,6 +32,21 @@ from diary import Diary
 warnings.filterwarnings("ignore")
 np.random.seed(42)
 
+# Parameters for sklearn synthetic data
+openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
+              'vehicle': 54, 'vowel': 307, 'wine': 187, 'abalone': 1557,
+              'balance-scale': 11, 'car': 21, 'ecoli': 39, 'satimage': 182,
+              'collins': 478, 'cardiotocography': 1466, 'JapaneseVowels': 375,
+              'autoUniv-au6-1000': 1555, 'autoUniv-au6-750': 1549,
+              'analcatdata_dmft': 469, 'autoUniv-au7-1100': 1552,
+              'GesturePhaseSegmentationProcessed': 4538,
+              'autoUniv-au7-500': 1554, 'mfeat-zernike': 22, 'zoo': 62,
+              'page-blocks': 30, 'yeast': 181, 'flags': 285,
+              'visualizing_livestock': 685, 'diggle_table_a2': 694,
+              'prnn_fglass': 952, 'confidence': 468, 'fl2000': 477}
+openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
+
+
 def parse_arguments():
     parser = OptionParser()
     parser.add_option('-p', '--problem', dest='problem', default='blobs',
@@ -80,13 +95,6 @@ diary.add_notebook('validation')
 
 ############################
 # ## Configurable parameters
-
-# Parameters for sklearn synthetic data
-openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
-              'vehicle': 54, 'vowel': 307, 'wine': 187, 'abalone': 1557,
-              'balance-scale': 11, 'car': 21, 'ecoli': 39, 'satimage': 182}
-openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
-
 # Parameters of the weak label model
 alpha = 0.8
 beta = 0.2
