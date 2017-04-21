@@ -10,13 +10,21 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-def get_list_results_folders(folder):
-    essentials = ['description.txt', 'dataset.csv',
-                  'pd_df_results.csv']
+def get_list_results_folders(folder, return_unfinished=False):
+    essentials = ['description.txt', 'dataset.csv']
+    finished = ['pd_df_results.csv']
     list_results_folders = []
+    list_unfinished_folders = []
     for root, subdirs, files in walk(folder):
         if set(essentials).issubset(set(files)):
-            list_results_folders.append(root)
+            if set(finished).issubset(set(files)):
+                list_results_folders.append(root)
+            elif return_unfinished:
+                list_unfinished_folders.append(root)
+
+    if return_unfinished:
+        return list_results_folders, list_unfinished_folders
+
     return list_results_folders
 
 
@@ -49,10 +57,6 @@ def get_results_df(folder):
     return df
 
 def extract_summary(folder):
-    summary = {}
-    summary['folder'] = folder
-    #description_file = path.join(folder, 'description.txt')
-
     dataset_df = get_dataset_df(folder)
     results_df = get_results_df(folder)
 
@@ -64,8 +68,24 @@ def extract_summary(folder):
     return summary
 
 
+def extract_unfinished_summary(folder):
+    dataset_df = get_dataset_df(folder)
+
+    dataset_df['folder'] = folder
+
+    return dataset_df
+
+
 def main(folder='results'):
-    results_folders = get_list_results_folders(folder)
+    results_folders, unfin_folders = get_list_results_folders(folder, True)
+
+    u_summaries = []
+    for uf in unfin_folders:
+        u_summaries.append(extract_unfinished_summary(uf))
+    dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
+
+    print("The following experiments did not finish")
+    print(dfs_unf)
 
     summaries = []
     for rf in results_folders:
