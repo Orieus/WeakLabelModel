@@ -87,9 +87,16 @@ def main(folder='results'):
     print("The following experiments did not finish")
     print(dfs_unf)
 
+    f_summaries = []
+    for rf in results_folders:
+        f_summaries.append(extract_unfinished_summary(rf))
+    dfs_fin = pd.concat(f_summaries, axis=0, ignore_index=True)
+
+    print("The following experiments did finish")
+    print(dfs_fin)
+
     summaries = []
     for rf in results_folders:
-        print("Extracting folder {}".format(rf))
         summaries.append(extract_summary(rf))
 
     dfs = pd.concat(summaries, axis=0, ignore_index=True)
