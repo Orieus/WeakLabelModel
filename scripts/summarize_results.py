@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import itertools
 from os import listdir
 from os import path
 from os import walk
@@ -7,8 +8,59 @@ from argparse import ArgumentParser
 
 import csv
 import pandas as pd
+import numpy as np
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+def plot_df_heatmap(df, normalize=None, title='Heat-map',
+                    cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+
+    normalize : 'rows', 'cols' (default=None)
+    """
+    rows = df.index.values
+    columns = df.columns.values
+    M = df.values
+
+    if normalize == 'rows':
+        M = M.astype('float') / M.sum(axis=1)[:, np.newaxis]
+        print("Normalized rows heat-map")
+    if normalize == 'cols':
+        M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
+        print("Normalized cols heat-map")
+    else:
+        print('Heat-map, without normalization')
+
+    print(M)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    im = ax.imshow(M, interpolation='nearest', cmap=cmap)
+    fig.colorbar(im)
+    ax.set_title(title)
+    column_tick_marks = np.arange(len(columns))
+    ax.set_xticks(column_tick_marks)
+    ax.set_xticklabels(columns, rotation=45, ha='right')
+    row_tick_marks = np.arange(len(rows))
+    ax.set_yticks(row_tick_marks)
+    ax.set_yticklabels(rows)
+
+    thresh = M.max() / 2.
+    for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
+        # fontsize is adjust for different number of digits
+        ax.text(j, i, '{:0.2f}'.format(M[i, j]),
+                fontsize=5,
+                horizontalalignment="center", verticalalignment="center",
+                color="white" if M[i, j] > thresh else "black")
+
+    ax.set_ylabel(df.index.name)
+    ax.set_xlabel(df.columns.name)
+    fig.tight_layout()
+    return fig
 
 def get_list_results_folders(folder, return_unfinished=False):
     essentials = ['description.txt', 'dataset.csv']
@@ -128,6 +180,21 @@ def main(folder='results'):
             ax.set_xlabel(column)
             plt.tight_layout()
             fig.savefig('{}_{}.{}'.format(groupby, column, fig_extension))
+
+    indices = ['tag']
+    columns = ['method', 'name']
+    values = ['loss_val']
+    normalizations = [None, 'rows', 'cols']
+    for value in values:
+        for index in indices:
+            for column in columns:
+                for norm in normalizations:
+                    dfs2 = pd.pivot_table(dfs, values=value, index=index,
+                                          columns=column)
+                    fig = plot_df_heatmap(dfs2, normalize=norm,
+                                          title='Heat-map (normalized {})'.format(norm))
+                    fig.savefig('{}_vs_{}_{}_heatmap_{}.{}'.format(
+                                index, column, value, norm, fig_extension))
 
 def __test_1():
     main('results')
