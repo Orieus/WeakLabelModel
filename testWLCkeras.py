@@ -109,6 +109,7 @@ n_sim = options.n_sim
 loss = options.loss
 rho = options.rho
 n_it = options.n_it
+n_epoch = 20
 
 method = options.method
 method2 = options.method2
@@ -340,7 +341,7 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-LR-Superv-SGD'
 title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
-params = {'n_it': n_it}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
@@ -355,7 +356,7 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-LR-OSL-SGD'
 title[tag] = 'Keras OSL loss with Stochastic Gradient Descent'
-params = {'n_it': n_it}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
@@ -371,7 +372,7 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-LR-QIPL-SGD'
 title[tag] = 'Keras Logistic regression QIPL loss with Stochastic GD'
-params = {'n_it': n_it}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
@@ -386,7 +387,7 @@ tag_list.append(tag)
 # Miquel: Add hoc M-proper loss with Stochastic Gradient Descent
 tag = 'Keras-LR-Mproper-SGD'
 title[tag] = 'Keras Logistic regression M-proper loss with Stochastic GD'
-params = {'n_it': n_it}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                           output_size=n_classes,
                                           optimizer='SGD',
@@ -401,7 +402,7 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-MLP-Superv-SGD'
 title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
-params = {'n_it': 20}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',
@@ -417,7 +418,7 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-MLP-OSL-SGD'
 title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
-params = {'n_it': 20}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',
@@ -433,7 +434,6 @@ tag_list.append(tag)
 # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 tag = 'Keras-MLP-QIPL-SGD'
 title[tag] = 'Keras MLP QIPL loss with Stochastic Gradient Descent'
-params = {'n_it': 20}
 wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',
@@ -448,7 +448,7 @@ tag_list.append(tag)
 # Miquel: Add hoc M-proper loss with Stochastic Gradient Descent
 tag = 'Keras-MLP-Mproper-SGD'
 title[tag] = 'Keras MLP M-proper loss with Stochastic Gradient Descent'
-params = {'n_it': 20}
+params = {'n_epoch': n_epoch}
 wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                             output_size=n_classes,
                                             optimizer='SGD',

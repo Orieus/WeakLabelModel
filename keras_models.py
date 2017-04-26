@@ -140,8 +140,8 @@ class KerasModel(object):
         The fit function requires both train_x and train_y.
         See 'The selected model' section above for explanation
         """
-        if 'n_it' in self.params:
-            nb_epoch = self.params['n_it']
+        if 'n_epoch' in self.params:
+            nb_epoch = self.params['n_epoch']
 
         batch_size = self.batch_size if batch_size is None else batch_size
 
