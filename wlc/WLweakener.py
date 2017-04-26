@@ -31,25 +31,19 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     if method == 'supervised':
 
-        M = np.array([[0.0, 0.0, 0.0],
-                      [0,   0,   1],
-                      [0,   1,   0],
-                      [0.0, 0.0, 0.0],
-                      [1,   0,   0],
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0]])
+        M = np.eye(c)
 
     elif method == 'noisy':
 
-        M = np.array([[0.0,     0.0,    0.0],
-                      [alpha/2, beta/2, 1-gamma],
-                      [alpha/2, 1-beta, gamma/2],
-                      [0.0,     0.0,    0.0],
-                      [1-alpha, beta/2, gamma/2],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0],
-                      [0.0,     0.0,    0.0]])
+        M = (np.eye(c) * (1-beta-beta/(c-1)) +
+             np.ones((c, c)) * beta/(c-1))
+
+    elif method == 'random_noise':
+
+        # FIXME I thought the rows should sum to one... See the reason
+        M = np.random.rand(c,c)
+        col_sums = M.sum(axis=0)
+        M = M / col_sums[np.newaxis, :]
 
     elif method == 'IPL':
 

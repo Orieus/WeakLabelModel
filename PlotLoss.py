@@ -24,6 +24,7 @@ def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
                            'log'    :Log loss (cross entroy)
                            'l01'    :zero-one loss
                            'DD'     :Decision directed loss (also called OSL)
+                           'JS'     :Jensen-Shannon divergence
 
             The following parameters are used to compute weak losses
             B
@@ -46,8 +47,17 @@ def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
     # ## Average loss
     if loss_name == 'DD':
         meanloss = np.dot(eta.T, np.dot(M.T, bloss))
-    else:
+    elif loss_name != 'JS':
         meanloss = np.dot(eta.T, np.dot(B, loss))
+
+    # A special case: Jensen - Shannon Entropy
+    if loss_name == 'JS':
+        if not (B is None and M is None and Z is None):
+            exit("No weak losses have been defined for JS divergences")
+        m = (q + eta) / 2
+        d_eta = - np.dot(eta.T, np.log(eta / m))
+        d_q = - np.dot(q.T, np.log(q / m))
+        meanloss = (d_eta + d_q) / 2
 
     return meanloss
 

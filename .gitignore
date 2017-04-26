@@ -61,3 +61,8 @@ target/
 
 # Vim swap files
 *.swp
+*.swo
+# ignore figures
+figures/
+results/
+scripts/
