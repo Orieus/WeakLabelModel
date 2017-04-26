@@ -175,25 +175,6 @@ def computeVirtual(z, c, method='IPL', M=None):
     v = z_bin
     return v
 
-def nan_equal(a,b):
-    try:
-        np.testing.assert_equal(a,b)
-    except AssertionError:
-        return False
-    return True
-
-def test_computeVirtual():
-    z = np.array([0, 1, 2, 3])
-    c = 2
-    method='IPL'
-    z_bin = computeVirtual(z, c, method)
-    expected = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-    assert(np.array_equal(z_bin, expected))
-
-    method='quasi_IPL'
-    z_bin = computeVirtual(z, c, method)
-    expected = np.array([[.5, .5], [0, 1], [1, 0], [np.nan, np.nan]])
-    assert(nan_equal(z_bin, expected))
 
 def main():
 
