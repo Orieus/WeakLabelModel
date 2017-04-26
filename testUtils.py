@@ -32,7 +32,7 @@ def savefig(fig, path='figures', prefix='weak_labels_', extension='svg'):
 def plot_data(x, y):
     fig = newfig('data')
     ax = fig.add_subplot(111)
-    ax.scatter(x[:, 0], x[:, 1], c=y, s=50, cedgecolors='black' ,map='Paired',
+    ax.scatter(x[:, 0], x[:, 1], c=y, s=50, edgecolors='black', cmap='Paired',
                alpha=.8)
     ax.set_xlabel('$x_0$')
     ax.set_ylabel('$x_1$')
