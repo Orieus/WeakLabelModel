@@ -117,7 +117,6 @@ def generateWeak(y, M, c):
 
     return z
 
-
 def computeVirtual(z, c, method='IPL', M=None):
     """
     Generate the set of virtual labels v for n examples, given the weak labels
@@ -148,47 +147,32 @@ def computeVirtual(z, c, method='IPL', M=None):
     v = np.zeros((z.size, c))             # virtual labels
 
     for index, i in enumerate(z):         # From dec to bin
-
         z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
 
     if method == 'IPL' or method == 'supervised':
-
         # weak and virtual are the same
         pass
-
     elif method == 'quasi_IPL':    # quasi-independent labels
-
         for index, i in enumerate(z_bin):
-
             aux = z_bin[index, :]
             weak_pos = np.sum(aux)
-
             if not weak_pos == c:
-
                 weak_zero = float(1-weak_pos)/(c-weak_pos)
                 aux[aux == 0] = weak_zero
                 z_bin[index, :] = aux
-
             else:
-
                 z_bin[index, :] = np.array([None] * c)
-
     elif method == 'Mproper':
-
         # Compute the virtual label matrix
         Y = np.linalg.pinv(M)
-
         # Compute the virtual label.
         for index, i in enumerate(z):
             # The virtual label for weak label i is the i-th row in Y
             z_bin[index, :] = Y[:, int(i)]
-
     else:
-
         print 'Unknown method. Weak label taken as virtual'
 
     v = z_bin
-
     return v
 
 
