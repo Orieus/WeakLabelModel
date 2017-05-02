@@ -31,7 +31,6 @@ from testUtils import plot_data, plot_results, evaluateClassif
 from diary import Diary
 
 warnings.filterwarnings("ignore")
-np.random.seed(42)
 
 # Parameters for sklearn synthetic data
 openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
@@ -92,6 +91,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
     problem_list = problems.split(',')
 
     for problem in problem_list:
+        np.random.seed(42)
         ############################
         # ## Create a Diary for all the logs and results
         diary = Diary(name='testWLCkeras', path='results', overwrite=False,
