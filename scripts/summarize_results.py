@@ -50,8 +50,6 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     else:
         print('Heat-map, without normalization')
 
-    print(M)
-
     h_size = max(7, len(columns)*.8)
     v_size = max(7, len(rows)*.8)
     fig = plt.figure(figsize=(h_size, v_size))
@@ -196,6 +194,8 @@ def main(folder='results'):
             ax.set_xlabel(column)
             plt.tight_layout()
             fig.savefig('{}_{}.{}'.format(groupby, column, fig_extension))
+            fig.clear()
+            plt.close(fig)
 
     indices = ['tag']
     columns = ['method', 'name']
@@ -211,6 +211,8 @@ def main(folder='results'):
                                           title='Heat-map (normalized {})'.format(norm))
                     fig.savefig('{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension))
+                    fig.clear()
+                    plt.close(fig)
 
     filter_by_column = 'method'
     filter_values = df[filter_by_column].unique()
@@ -234,6 +236,7 @@ def main(folder='results'):
                                     index, column, filtered_row, value, norm,
                                     fig_extension))
                         fig.clear()
+                        plt.close(fig)
 
 
 def __test_1():
