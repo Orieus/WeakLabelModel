@@ -9,6 +9,7 @@
 # External modules
 import os
 import warnings
+import time
 
 import pandas as pd
 import numpy as np
@@ -418,18 +419,21 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         appended_dfs = []
         for i, tag in enumerate(tag_list):
             print tag
+            t_start = time.clock()
             Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y,
                                                      v_dict[tag], n_sim=n_sim,
                                                      n_jobs=n_jobs[tag])
+            seconds = time.clock() - t_start
             fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes,
                                n_sim, save=False)
             diary.save_figure(fig)
 
-            rows = [[tag, title[tag], n_jobs[tag], loss, j, tr_l, cv_l]
-                    for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]
-            df_aux = pd.DataFrame(rows, columns=['tag', 'title', 'jobs',
-                                                 'loss', 'sim', 'loss_train',
-                                                 'loss_val'])
+            rows = [[seconds, tag, title[tag], n_jobs[tag], loss,
+                     j, tr_l, cv_l]
+                        for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]
+            df_aux = pd.DataFrame(rows, columns=['seconds', 'tag', 'title',
+                                                 'jobs', 'loss', 'sim',
+                                                 'loss_train', 'loss_val'])
             appended_dfs.append(df_aux)
 
         df = pd.concat(appended_dfs, axis=0, ignore_index=True)
