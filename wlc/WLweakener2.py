@@ -24,6 +24,12 @@ def computeM(c, beta=0.5, method='supervised'):
         M = (np.eye(c) * (1-beta-beta/(c-1)) +
              np.ones((c, c)) * beta/(c-1))
 
+    elif method == 'random_noise':
+
+        M = np.random.rand(c,c)
+        row_sums = M.sum(axis=1)
+        M = M / row_sums[:, np.newaxis]
+
     # elif method == 'IPL':
 
     #     M = np.array([
