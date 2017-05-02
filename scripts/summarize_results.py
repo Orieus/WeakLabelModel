@@ -14,6 +14,21 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+class MyFloat(float):
+    def _remove_leading_zero(self, value, string):
+        if 1 > value > -1:
+            string = string.replace('0', '', 1)
+        return string
+
+    def __str__(self):
+        string = super(MyFloat, self).__str__()
+        return self._remove_leading_zero(self, string)
+
+    def __format__(self, format_string):
+        string = super(MyFloat, self).__format__(format_string)
+        return self._remove_leading_zero(self, string)
+
+
 def plot_df_heatmap(df, normalize=None, title='Heat-map',
                     cmap=plt.cm.Blues):
     """
@@ -37,7 +52,9 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
 
     print(M)
 
-    fig = plt.figure()
+    h_size = max(7, len(columns)*.8)
+    v_size = max(7, len(rows)*.8)
+    fig = plt.figure(figsize=(h_size, v_size))
     ax = fig.add_subplot(111)
     im = ax.imshow(M, interpolation='nearest', cmap=cmap)
     fig.colorbar(im)
@@ -52,8 +69,7 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     thresh = M.max() / 2.
     for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
         # fontsize is adjust for different number of digits
-        ax.text(j, i, '{:0.2f}'.format(M[i, j]),
-                fontsize=5,
+        ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
                 horizontalalignment="center", verticalalignment="center",
                 color="white" if M[i, j] > thresh else "black")
 
@@ -151,28 +167,28 @@ def main(folder='results'):
     for rf in results_folders:
         summaries.append(extract_summary(rf))
 
-    dfs = pd.concat(summaries, axis=0, ignore_index=True)
+    df = pd.concat(summaries, axis=0, ignore_index=True)
 
     # from IPython import embed; embed()
-    # idx = dfs.groupby(by=['folder'])['mean'].transform(min)==dfs['mean']
+    # idx = df.groupby(by=['folder'])['mean'].transform(min)==df['mean']
 
-    # dfs[idx].to_csv('best_results.csv', sep='\t')
+    # df[idx].to_csv('best_results.csv', sep='\t')
 
     groups_by = ['tag', 'name', 'method']
     columns = ['loss_train', 'loss_val']
     fig_extension = 'svg'
     for groupby in groups_by:
         for column in columns:
-            # grouped = dfs[idx].groupby([groupby])
-            grouped = dfs.groupby([groupby])
+            # grouped = df[idx].groupby([groupby])
+            grouped = df.groupby([groupby])
 
-            dfs2 = pd.DataFrame({col:vals[column] for col,vals in grouped})
-            meds = dfs2.median()
+            df2 = pd.DataFrame({col:vals[column] for col,vals in grouped})
+            meds = df2.median()
             meds.sort(ascending=False)
-            dfs2 = dfs2[meds.index]
+            df2 = df2[meds.index]
 
             fig = plt.figure(figsize=(10,len(meds)/2+3))
-            ax = dfs2.boxplot(vert=False)
+            ax = df2.boxplot(vert=False)
             ax.set_title('results grouped by {}'.format(groupby))
 
             counts =  {k:len(v) for k,v in grouped}
@@ -189,12 +205,36 @@ def main(folder='results'):
         for index in indices:
             for column in columns:
                 for norm in normalizations:
-                    dfs2 = pd.pivot_table(dfs, values=value, index=index,
+                    df2 = pd.pivot_table(df, values=value, index=index,
                                           columns=column)
-                    fig = plot_df_heatmap(dfs2, normalize=norm,
+                    fig = plot_df_heatmap(df2, normalize=norm,
                                           title='Heat-map (normalized {})'.format(norm))
                     fig.savefig('{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension))
+
+    filter_by_column = 'method'
+    filter_values = df[filter_by_column].unique()
+    indices = ['tag']
+    columns = ['name']
+    values = ['loss_val']
+    normalizations = [None, 'rows', 'cols']
+    for filtered_row in filter_values:
+        for value in values:
+            for index in indices:
+                for column in columns:
+                    for norm in normalizations:
+                        df_filtered = df[df[filter_by_column] == filtered_row]
+                        df2 = pd.pivot_table(df_filtered, values=value,
+                                             index=index, columns=column)
+                        fig = plot_df_heatmap(
+                                df2, normalize=norm,
+                                title='Heat-map by {} (normalized {})'.format(
+                                    filtered_row, norm))
+                        fig.savefig('{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
+                                    index, column, filtered_row, value, norm,
+                                    fig_extension))
+                        fig.clear()
+
 
 def __test_1():
     main('results')
@@ -214,5 +254,5 @@ def parse_arguments():
 if __name__ == '__main__':
     __test_1()
 
-    #args = parse_arguments()
-    #main(args.results_path)
+    args = parse_arguments()
+    main(args.results_path)
