@@ -14,6 +14,13 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+def savefig_and_close(fig, figname):
+    plt.tight_layout()
+    fig.savefig(figname)
+    fig.clear()
+    plt.close(fig)
+
+
 class MyFloat(float):
     def _remove_leading_zero(self, value, string):
         if 1 > value > -1:
@@ -64,12 +71,18 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     ax.set_yticks(row_tick_marks)
     ax.set_yticklabels(rows)
 
-    thresh = M.max() / 2.
+    thresh = M.min() + ((M.max()-M.min()) / 2.)
+    are_ints = df.dtypes[0] in ['int', 'int32', 'int64']
     for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
-        # fontsize is adjust for different number of digits
-        ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                horizontalalignment="center", verticalalignment="center",
-                color="white" if M[i, j] > thresh else "black")
+        # fontsize is adjusted for different number of digits
+        if are_ints:
+            ax.text(j, i, M[i, j], horizontalalignment="center",
+                    verticalalignment="center", color="white" if M[i, j] >
+                    thresh else "black")
+        else:
+            ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
+                    horizontalalignment="center", verticalalignment="center",
+                    color="white" if M[i, j] > thresh else "black")
 
     ax.set_ylabel(df.index.name)
     ax.set_xlabel(df.columns.name)
@@ -192,10 +205,8 @@ def main(folder='results'):
             counts =  {k:len(v) for k,v in grouped}
             ax.set_yticklabels(['%s\n$n$=%d'%(k,counts[k]) for k in meds.keys()])
             ax.set_xlabel(column)
-            plt.tight_layout()
-            fig.savefig('{}_{}.{}'.format(groupby, column, fig_extension))
-            fig.clear()
-            plt.close(fig)
+            savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
+                                                     fig_extension))
 
     indices = ['tag']
     columns = ['method', 'name']
@@ -204,15 +215,21 @@ def main(folder='results'):
     for value in values:
         for index in indices:
             for column in columns:
+                df2 = pd.pivot_table(df, values=value, index=index,
+                                     columns=column,
+                                     aggfunc=len).astype(int)
+                fig = plot_df_heatmap(df2, title='Number of experiments',
+                                      cmap=plt.cm.Greys)
+                savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
+                            index, column, value, fig_extension))
                 for norm in normalizations:
                     df2 = pd.pivot_table(df, values=value, index=index,
-                                          columns=column)
+                                         columns=column,
+                                         aggfunc=np.mean)
                     fig = plot_df_heatmap(df2, normalize=norm,
                                           title='Heat-map (normalized {})'.format(norm))
-                    fig.savefig('{}_vs_{}_{}_heatmap_{}.{}'.format(
+                    savefig_and_close(fig, '{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension))
-                    fig.clear()
-                    plt.close(fig)
 
     filter_by_column = 'method'
     filter_values = df[filter_by_column].unique()
@@ -224,6 +241,13 @@ def main(folder='results'):
         for value in values:
             for index in indices:
                 for column in columns:
+                    df2 = pd.pivot_table(df, values=value, index=index,
+                                         columns=column,
+                                         aggfunc=len).astype(int)
+                    fig = plot_df_heatmap(df2, title='Number of experiments',
+                                          cmap=plt.cm.Greys)
+                    savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
+                                index, column, filtered_row, value, fig_extension))
                     for norm in normalizations:
                         df_filtered = df[df[filter_by_column] == filtered_row]
                         df2 = pd.pivot_table(df_filtered, values=value,
@@ -232,11 +256,9 @@ def main(folder='results'):
                                 df2, normalize=norm,
                                 title='Heat-map by {} (normalized {})'.format(
                                     filtered_row, norm))
-                        fig.savefig('{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
+                        savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
                                     index, column, filtered_row, value, norm,
                                     fig_extension))
-                        fig.clear()
-                        plt.close(fig)
 
 
 def __test_1():
