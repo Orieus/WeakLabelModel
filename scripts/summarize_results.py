@@ -1,22 +1,29 @@
 #!/usr/bin/env python
 import sys
 import itertools
+import os
 from os import listdir
-from os import path
 from os import walk
 from argparse import ArgumentParser
 
 import csv
 import pandas as pd
 import numpy as np
+from scipy.stats import friedmanchisquare
+from scipy.stats import wilcoxon, ranksums
+from weasyprint import HTML
 
 import matplotlib
 matplotlib.use('Agg')
+#matplotlib.style.use('ggplot')
 import matplotlib.pyplot as plt
 
-def savefig_and_close(fig, figname):
-    plt.tight_layout()
-    fig.savefig(figname)
+fig_extension = 'svg'
+
+def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
+    filename = os.path.join(path, figname)
+    fig.savefig(filename, bbox_extra_artists=bbox_extra_artists,
+                bbox_inches='tight')
     fig.clear()
     plt.close(fig)
 
@@ -71,7 +78,7 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     ax.set_yticks(row_tick_marks)
     ax.set_yticklabels(rows)
 
-    thresh = M.min() + ((M.max()-M.min()) / 2.)
+    thresh = np.nanmin(M) + ((np.nanmax(M)-np.nanmin(M)) / 2.)
     are_ints = df.dtypes[0] in ['int', 'int32', 'int64']
     for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
         # fontsize is adjusted for different number of digits
@@ -80,9 +87,11 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
                     verticalalignment="center", color="white" if M[i, j] >
                     thresh else "black")
         else:
-            ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                    horizontalalignment="center", verticalalignment="center",
-                    color="white" if M[i, j] > thresh else "black")
+            if np.isfinite(M[i, j]):
+                ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
+                        horizontalalignment="center",
+                        verticalalignment="center",
+                        color="white" if M[i, j] > thresh else "black")
 
     ax.set_ylabel(df.index.name)
     ax.set_xlabel(df.columns.name)
@@ -121,7 +130,7 @@ def format_diary_df(df):
 
 
 def get_dataset_df(folder):
-    filename = path.join(folder, 'dataset.csv')
+    filename = os.path.join(folder, 'dataset.csv')
     df = pd.read_csv(filename, header=None, quotechar='|',
             infer_datetime_format=True)
     df = format_diary_df(df)
@@ -130,7 +139,7 @@ def get_dataset_df(folder):
 
 
 def get_results_df(folder):
-    filename = path.join(folder, 'pd_df_results.csv')
+    filename = os.path.join(folder, 'pd_df_results.csv')
     df = pd.read_csv(filename, quotechar='|', infer_datetime_format=True,
                      index_col=0)
     return df
@@ -155,8 +164,72 @@ def extract_unfinished_summary(folder):
     return dataset_df
 
 
-def main(folder='results'):
+def export_datasets_info(df, path='', stylesheets=['style.css']):
+    columns = ['name', 'size', 'n_features', 'n_classes']
+    sort_by = ['name']
+    index = columns[0]
+    html_out = df[columns].drop_duplicates().sort_values(sort_by).set_index(index).to_html()
+    filename = os.path.join(path, "datasets.pdf")
+    HTML(string=html_out).write_pdf(filename, stylesheets=stylesheets)
+
+
+def export_df(df, filename, path='', extension='pdf', stylesheets=['style.css']):
+    if extension == 'pdf':
+        html_out = df.to_html()
+        filename = os.path.join(path, filename)
+        HTML(string=html_out).write_pdf("{}.{}".format(filename, extension),
+                                        stylesheets=stylesheets)
+
+def friedman_test(df, index, column):
+    indices = np.sort(df[index].unique())
+
+    results = {}
+    first = True
+    for ind in indices:
+        results[ind] = df[df[index]==ind][column].values
+        if first:
+            size = results[ind].shape[0]
+            first = False
+        elif size != results[ind].shape[0]:
+            print("Friedman test can not be done with different sample sizes")
+            return
+
+    # FIXME be sure that the order is correct
+    statistic, pvalue = friedmanchisquare(*results.values())
+    return statistic, pvalue
+
+
+def wilcoxon_rank_sum_test(df, index, column, signed=False,
+                                      twosided=True):
+    indices = np.sort(df[index].unique())
+    results = {}
+    for index1 in indices:
+        results[index1] = df[df[index]==index1][column]
+
+    stat = []
+    for (index1, index2) in itertools.combinations(indices,2):
+        if index1 != index2:
+            if signed:
+                statistic, pvalue = wilcoxon(results[index1].values,
+                                             results[index2].values)
+            else:
+                statistic, pvalue = ranksums(results[index1].values,
+                                             results[index2].values)
+            if not twosided:
+                pvalue /= 2
+            stat.append(pd.DataFrame([[index1, index2, statistic, pvalue]],
+                columns=['index1', 'index2', 'statistic', 'p-value']))
+
+    dfstat = pd.concat(stat, axis=0, ignore_index=True)
+    return dfstat
+
+
+def main(folder='results', summary_path='', filter_rows={}):
     results_folders, unfin_folders = get_list_results_folders(folder, True)
+
+    # Creates summary path if it does not exist
+    if not os.path.exists(summary_path):
+        os.mkdir(summary_path)
 
     u_summaries = []
     for uf in unfin_folders:
@@ -180,14 +253,29 @@ def main(folder='results'):
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
-    # from IPython import embed; embed()
-    # idx = df.groupby(by=['folder'])['mean'].transform(min)==df['mean']
+    for key, value in filter_rows.items():
+        df = df[df[key].str.contains(value)]
 
-    # df[idx].to_csv('best_results.csv', sep='\t')
+    export_datasets_info(df, path=summary_path)
 
+    friedman_test(df, 'tag', 'loss_val')
+    df_wilc = wilcoxon_rank_sum_test(df, 'tag', 'loss_val')
+    export_df(df_wilc, 'wilcoxon_rank_sum_test', path=summary_path, extension='pdf')
+    df_wilc_square = df_wilc.pivot_table(index='index1', columns='index2',
+                                         values='p-value')
+    export_df(df_wilc_square, 'wilcoxon_rank_sum_test_square',
+              path=summary_path, extension='pdf')
+    fig = plot_df_heatmap(df_wilc_square,
+                          title='Wilcoxon rank sum test p-values',
+                          cmap=plt.cm.Greys)
+    savefig_and_close(fig, 'wilcoxon_rank_sum_test_heatmap.{}'.format(
+        fig_extension), path=summary_path)
+
+    ########################################################################
+    # Boxplots by different groups
+    ########################################################################
     groups_by = ['tag', 'name', 'method']
     columns = ['loss_train', 'loss_val']
-    fig_extension = 'svg'
     for groupby in groups_by:
         for column in columns:
             # grouped = df[idx].groupby([groupby])
@@ -206,12 +294,33 @@ def main(folder='results'):
             ax.set_yticklabels(['%s\n$n$=%d'%(k,counts[k]) for k in meds.keys()])
             ax.set_xlabel(column)
             savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
-                                                     fig_extension))
+                                                     fig_extension), path=summary_path)
 
+    ########################################################################
+    # Heatmap of models vs method or dataset
+    ########################################################################
+    indices = ['method']
+    columns = ['name']
+    values = ['loss_val']
+    normalizations = [None] #, 'rows', 'cols']
+    for value in values:
+        for index in indices:
+            for column in columns:
+                df2 = pd.pivot_table(df, values=value, index=index,
+                                     columns=column,
+                                     aggfunc=len)
+                fig = plot_df_heatmap(df2, title='Number of experiments',
+                                      cmap=plt.cm.Greys)
+                savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
+                            index, column, value, fig_extension), path=summary_path)
+
+    ########################################################################
+    # Heatmap of models vs method or dataset
+    ########################################################################
     indices = ['tag']
     columns = ['method', 'name']
     values = ['loss_val']
-    normalizations = [None, 'rows', 'cols']
+    normalizations = [None] #, 'rows', 'cols']
     for value in values:
         for index in indices:
             for column in columns:
@@ -221,7 +330,7 @@ def main(folder='results'):
                 fig = plot_df_heatmap(df2, title='Number of experiments',
                                       cmap=plt.cm.Greys)
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
-                            index, column, value, fig_extension))
+                            index, column, value, fig_extension), path=summary_path)
                 for norm in normalizations:
                     df2 = pd.pivot_table(df, values=value, index=index,
                                          columns=column,
@@ -229,40 +338,58 @@ def main(folder='results'):
                     fig = plot_df_heatmap(df2, normalize=norm,
                                           title='Heat-map (normalized {})'.format(norm))
                     savefig_and_close(fig, '{}_vs_{}_{}_heatmap_{}.{}'.format(
-                                index, column, value, norm, fig_extension))
+                                index, column, value, norm, fig_extension), path=summary_path)
 
+    ########################################################################
+    # Heatmap of models vs dataset for every method
+    ########################################################################
     filter_by_column = 'method'
     filter_values = df[filter_by_column].unique()
+    # TODO change columns and indices
     indices = ['tag']
-    columns = ['name']
+    columns = ['name', 'size', 'n_classes', 'n_features']
     values = ['loss_val']
-    normalizations = [None, 'rows', 'cols']
+    normalizations = [None] #, 'rows', 'cols']
     for filtered_row in filter_values:
         for value in values:
             for index in indices:
                 for column in columns:
-                    df2 = pd.pivot_table(df, values=value, index=index,
-                                         columns=column,
-                                         aggfunc=len).astype(int)
-                    fig = plot_df_heatmap(df2, title='Number of experiments',
-                                          cmap=plt.cm.Greys)
-                    savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
-                                index, column, filtered_row, value, fig_extension))
-                    for norm in normalizations:
-                        df_filtered = df[df[filter_by_column] == filtered_row]
-                        df2 = pd.pivot_table(df_filtered, values=value,
-                                             index=index, columns=column)
-                        fig = plot_df_heatmap(
-                                df2, normalize=norm,
-                                title='Heat-map by {} (normalized {})'.format(
-                                    filtered_row, norm))
-                        savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
-                                    index, column, filtered_row, value, norm,
-                                    fig_extension))
+                    df_filtered = df[df[filter_by_column] == filtered_row]
+                    df2 = pd.pivot_table(df_filtered, values=value,
+                                         index=index, columns=column)
+                    if df2.columns.dtype in ['object', 'string']:
+                        for norm in normalizations:
+                            fig = plot_df_heatmap(
+                                    df2, normalize=norm,
+                                    title='Heat-map by {} (normalized {})'.format(
+                                        filtered_row, norm))
+                            savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
+                                        index, column, filtered_row, value, norm,
+                                        fig_extension), path=summary_path)
+
+                        df2 = pd.pivot_table(df, values=value, index=index,
+                                 columns=column,
+                                 aggfunc=len).astype(int)
+                        fig = plot_df_heatmap(df2, title='Number of experiments',
+                                              cmap=plt.cm.Greys)
+                        savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
+                                    index, column, filtered_row, value, fig_extension), path=summary_path)
+                    else:
+                        fig = plt.figure()
+                        ax = fig.add_subplot(111)
+                        df2.transpose().plot(ax=ax, style='.-', logx=True)
+                        ax.set_title('{} {}'.format( filtered_row, value))
+                        ax.set_ylabel(value)
+                        lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
+                        savefig_and_close(fig,
+                                'plot_mean_{}_vs_{}_by_{}_{}.{}'.format( index,
+                                    column, filtered_row, value,
+                                    fig_extension), path=summary_path, bbox_extra_artists=(lgd,))
 
 
 def __test_1():
-    main('results')
+    main('results', summary_path='keras_lr', filter_rows={'tag':'Keras-LR'})
+    main('results', summary_path='all', filter_rows={})
     sys.exit(0)
 
 
@@ -279,5 +406,5 @@ def parse_arguments():
 if __name__ == '__main__':
     __test_1()
 
-    args = parse_arguments()
-    main(args.results_path)
+    #args = parse_arguments()
+    #main(args.results_path)
