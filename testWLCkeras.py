@@ -171,14 +171,84 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
                                     'method', method, 'method2', method2])
 
         # Generate weak labels
+        #     Available options are:
+        #        'supervised':   Identity matrix. For a fully labeled case.
+        #        'noisy':        For a noisy label case: the true label is
+        #                        observed with probabiltity 1 - beta, otherwise
+        #                        one noisy label is taken at random.
+        #        'random_noise': All values of the mixing matrix are taken at
+        #                        random from a uniform distribution. The matrix
+        #                        is normalized to be left-stochastic
+        #        'IPL':          Independent partial labels: the observed labels
+        #                        are independent. The true label is observed
+        #                        with probability alfa. Each False label is
+        #                        observed with probability beta.
+        #        'IPL3':         It is a generalized version of IPL, but only
+        #                        for c=3 classes and alpha=1: each false label
+        #                        is observed with a different probability.
+        #                        Parameters alpha, beta and gamma represent the
+        #                        probability of a false label for each column.
+        #        'quasi_IPL':    This is the quasi independent partial label
+        #                        case discussed in the paper.
         M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
                          method=method)
         z = wlw.generateWeak(y, M, n_classes)
-        v = wlw.computeVirtual(z, n_classes, method=method)
+        # Compute the virtual labels
+        #         Available methods are:
+        #         - 'IPL'  : Independet Partial Labels. Takes virtual label
+        #                    vectors equal to the binary representations of the
+        #                    the weak labels in z
+        #         - 'supervised': Equivalent to IPL
+        #         - 'Mproper'   : Computes virtual labels for a M-proper loss.
+        #         - 'MCC'       : Computes virtual labels for a M-CC loss
+        #                         (Not available yet)
+        v  = wlw.computeVirtual(z, n_classes, method=method)
         v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
 
         # Convert z to a list of binary lists (this is for the OSL alg)
-        z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
+        z_bin = wlw.dec_to_bin(z, n_classes)
+
+        #######################################
+        # Explanation of the different labels
+        # e.g. n_classes = 3
+        #   y: (true labels) array of integers with shape (n_samples, )
+        #       e.g. [2, 0, 1]
+        #   y_bin: (true labels) matrix of integers with shape (n_samples,
+        #       n_classes) with the one hot encoding of y
+        #       e.g.[[0, 0, 1],
+        #            [1, 0, 0],
+        #            [0, 1, 0]]
+        #   z: (weak labels) array of integers with shape (n_samples, )
+        #       generated randomly using the mixing matrix M
+        #       e.g. [1, 4, 6]
+        #   FIXME z_bin are floats
+        #   z_bin: (weak labels) matrix of integers with shape (n_samples,
+        #       n_classes) with the binary encoding of z
+        #       eg[[0, 0, 1],
+        #          [1, 0, 0],
+        #          [1, 1, 0]]
+        #   v: (virtual labels) matrix of floats with shape (n_samples,
+        #       n_classes) with the binary encoding of v
+        #       e.g.[[0., 0., 1.],
+        #            [1., 0., 0.],
+        #            [1., 1., -1.]]
+        #   v2: (virtual labels) matrix of floats with shape (n_samples,
+        #       n_classes) using the M-proper and the known mixing matrix M
+        #       e.g. [[-0.07, -0.07, 1.34],
+        #             [1.34, -0.07, -0.07],
+        #             [0.31, 0.31, -0.03]]
+        ### e.g.
+        n_classes = 3
+        y = np.array([2,0,1])
+        y_bin = label_binarize(y, range(n_classes))
+        M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
+        z = wlw.generateWeak(y, M, n_classes)
+        # TODO if this is not to compute virtual it shouldn't be called the
+        #  same function. It should be dec to bin or seomething like that
+        z_bin = wlw.dec_to_bin(z, n_classes)
+        v = wlw.computeVirtual(z, n_classes, method=method)
+        v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
+        from IPython import embed; embed()
 
         # If dimension is 2, we draw a scatterplot
         if nf >= 2:
@@ -278,6 +348,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
 
         # ###################################################
         # Virtual Label Learning with BFGS and regularization
+        # TODO Is this virtual label only for some particular v?
         tag = 'VLL-BFGS'
         title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
         params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
@@ -289,6 +360,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
 
         # ############################################
         # Virtual Label Learning with Gradient Descent
+        # TODO Why is it called CC-VLL?
         tag = 'VLLc-GD'
         title[tag] = 'CC-VLL with Gradient Descent'
         params = {'rho': rho, 'n_it': n_it, 'loss': loss}
@@ -337,8 +409,8 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
 
         # ############################################
         # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-        tag = 'Keras-LR-QIPL-SGD'
-        title[tag] = 'Keras Logistic regression QIPL loss with Stochastic GD'
+        tag = 'Keras-LR-VLL-SGD'
+        title[tag] = 'Keras Logistic regression VLL loss with Stochastic GD'
         params = {'n_epoch': n_epoch}
         wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                                   output_size=n_classes,
@@ -391,8 +463,8 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
 
         # ############################################
         # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-        tag = 'Keras-MLP-QIPL-SGD'
-        title[tag] = 'Keras MLP QIPL loss with Stochastic Gradient Descent'
+        tag = 'Keras-MLP-VLL-SGD'
+        title[tag] = 'Keras MLP VLL loss with Stochastic Gradient Descent'
         wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
                                                     output_size=n_classes,
                                                     optimizer='SGD',
