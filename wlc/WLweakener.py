@@ -131,7 +131,7 @@ def generateWeak(y, M, c):
     labels y for n examples, a mixing matrix M, and a number of classes c.
     """
 
-    z = np.zeros(y.shape)        # Weak labels for all labels y (int)
+    z = np.zeros(y.shape, dtype=int)  # Weak labels for all labels y (int)
     d = M.shape[0]               # Number of weak labels
     # d = 2 ** c                   # Number of weak labels
     dec_labels = np.arange(d)    # Possible weak labels (int)
@@ -141,6 +141,8 @@ def generateWeak(y, M, c):
 
     return z
 
+def dec_to_bin(z, c):
+    return computeVirtual(z, c, method='IPL', M=None)
 
 def computeVirtual(z, c, method='IPL', M=None):
     """
@@ -168,7 +170,7 @@ def computeVirtual(z, c, method='IPL', M=None):
         v
     """
 
-    z_bin = np.zeros((z.size, c))         # weak labels (binary)
+    z_bin = np.zeros((z.size, c), dtype=int)         # weak labels (binary)
     v = np.zeros((z.size, c))             # virtual labels
 
     for index, i in enumerate(z):         # From dec to bin
