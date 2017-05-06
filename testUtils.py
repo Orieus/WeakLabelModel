@@ -143,10 +143,12 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         The data to fit.
 
     y : array-like, with shape (n_samples, n_classes)
-        The target variable.
+        The target variable. This array is used for the evaluation of the
+        model.
 
     v : array-like, optional, with shape (n_samples, n_classes), default: 'y'
-        The virtual target variable.
+        The virtual target variable. This array is used for the training of the
+        model.
 
     n_sim : integer, optional, default: 1
         The number of simulation runs.
@@ -176,10 +178,11 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     for i in xrange(n_sim):
         # ########################
         # Ground truth evaluation:
+        #   Training with the given virtual labels (by default true labels)
         classif.fit(X, v)
         f = classif.predict_proba(X)
 
-        # Then, we evaluate this classifier with all labels
+        # Then, we evaluate this classifier with all true labels
         # Note that training and test samples are being used in this error rate
         d = np.argmax(f, axis=1)
         Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
