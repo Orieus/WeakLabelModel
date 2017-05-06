@@ -170,7 +170,7 @@ def computeVirtual(z, c, method='IPL', M=None):
         v
     """
 
-    z_bin = np.zeros((z.size, c), dtype=int)         # weak labels (binary)
+    z_bin = np.zeros((z.size, c), dtype=float)         # weak labels (binary)
     v = np.zeros((z.size, c))             # virtual labels
 
     for index, i in enumerate(z):         # From dec to bin
@@ -196,6 +196,9 @@ def computeVirtual(z, c, method='IPL', M=None):
 
             else:
 
+                # FIXME We need z_bin to be of floats instead of integers if we
+                # want to assign an array of None (see if it is possible to
+                # solve)
                 z_bin[index, :] = np.array([None] * c)
 
     elif method == 'Mproper':
