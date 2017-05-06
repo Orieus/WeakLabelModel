@@ -238,17 +238,16 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         #             [1.34, -0.07, -0.07],
         #             [0.31, 0.31, -0.03]]
         ### e.g.
-        n_classes = 3
-        y = np.array([2,0,1])
-        y_bin = label_binarize(y, range(n_classes))
-        M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
-        z = wlw.generateWeak(y, M, n_classes)
-        # TODO if this is not to compute virtual it shouldn't be called the
-        #  same function. It should be dec to bin or seomething like that
-        z_bin = wlw.dec_to_bin(z, n_classes)
-        v = wlw.computeVirtual(z, n_classes, method=method)
-        v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
-        from IPython import embed; embed()
+        ## n_classes = 3
+        ## y = np.array([2,0,1])
+        ## y_bin = label_binarize(y, range(n_classes))
+        ## M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
+        ## z = wlw.generateWeak(y, M, n_classes)
+        ## # TODO if this is not to compute virtual it shouldn't be called the
+        ## #  same function. It should be dec to bin or seomething like that
+        ## z_bin = wlw.dec_to_bin(z, n_classes)
+        ## v = wlw.computeVirtual(z, n_classes, method=method)
+        ## v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
 
         # If dimension is 2, we draw a scatterplot
         if nf >= 2:
@@ -421,6 +420,19 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         tag_list.append(tag)
 
         # ############################################
+        # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+        tag = 'Keras-LR-VLLc-SGD'
+        title[tag] = 'Keras Logistic regression VLLc loss with Stochastic GD'
+        params = {'n_epoch': n_epoch}
+        wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+                                                  output_size=n_classes,
+                                                  optimizer='SGD',
+                                                  params=params)
+        n_jobs[tag] = -1
+        v_dict[tag] = z_bin
+        tag_list.append(tag)
+
+        # ############################################
         # Miquel: Add hoc M-proper loss with Stochastic Gradient Descent
         tag = 'Keras-LR-Mproper-SGD'
         title[tag] = 'Keras Logistic regression M-proper loss with Stochastic GD'
@@ -471,6 +483,18 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
                                                     params=params)
         n_jobs[tag] = 1
         v_dict[tag] = v
+        tag_list.append(tag)
+
+        # ############################################
+        # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+        tag = 'Keras-MLP-VLLc-SGD'
+        title[tag] = 'Keras MLP VLLc loss with Stochastic Gradient Descent'
+        wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+                                                    output_size=n_classes,
+                                                    optimizer='SGD',
+                                                    params=params)
+        n_jobs[tag] = 1
+        v_dict[tag] = z_bin
         tag_list.append(tag)
 
         # ############################################
