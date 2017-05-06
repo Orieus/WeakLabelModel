@@ -32,8 +32,26 @@ class TestWLweakener(unittest.TestCase):
                              [.3, .1, .3, .3],
                              [.3, .3, .1, .3],
                              [.3, .3, .3, .1]])
-
         np.testing.assert_array_almost_equal(M, expected)
+
+        # FIXME see the reason of the ordering
+        M = computeM(c=2, method='quasi_IPL', beta=0.2)
+        expected = np.array([[0., 0.],
+                             [0., 1.],
+                             [1., 0.],
+                             [0., 0.]])
+        assert(np.array_equal(M, expected))
+
+        M = computeM(c=3, method='quasi_IPL', beta=0.0)
+        expected = np.array([[0., 0., 0.],
+                             [0., 0., 1.],
+                             [0., 1., 0.],
+                             [0., 0., 0.],
+                             [1., 0., 0.],
+                             [0., 0., 0.],
+                             [0., 0., 0.],
+                             [0., 0., 0.]])
+        assert(np.array_equal(M, expected))
 
     def test_computeVirtual(self):
         z = np.array([0, 1, 2, 3])
