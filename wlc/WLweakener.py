@@ -70,14 +70,16 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         d = 2**c
 
         # Supervised component: Identity matrix with size d x c.
-        I = np.eye(d, c)
+        Ic = np.zeros((d, c))
+        for i in xrange(c):
+            Ic[2**i, i] = 1
 
         # Weak component: Random weak label proabilities
         M = np.random.rand(d, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
         # Averagins supervised and weak components
-        M = alpha * I + (1-alpha) * M
+        M = alpha * Ic + (1-alpha) * M
 
     elif method == 'IPL':
 
@@ -159,8 +161,10 @@ def generateWeak(y, M, c):
 
     return z
 
+
 def dec_to_bin(z, c):
     return computeVirtual(z, c, method='IPL', M=None)
+
 
 def computeVirtual(z, c, method='IPL', M=None):
     """
@@ -269,4 +273,15 @@ def main():
     M = computeM(c, alpha=0.5, beta=0.5, method='quasi_IPL')
     z = generateWeak(y, M, c)
     v = computeVirtual(z, c, method='quasi_IPL')
+
+    print M
+    print z
+    print v
+
+    ipdb.set_trace()
+
+
+if __name__ == "__main__":
+
+    main()
 
