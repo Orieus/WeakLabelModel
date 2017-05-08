@@ -61,6 +61,24 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         M = np.random.rand(c, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
+        M = alpha * np.eye(c) + (1-alpha) * M
+
+    elif method == 'random_weak':
+
+        # Number or rows. Equal to 2**c to simiulate a scenario where all
+        # possible binary label vectors are possible.
+        d = 2**c
+
+        # Supervised component: Identity matrix with size d x c.
+        I = np.eye(d, c)
+
+        # Weak component: Random weak label proabilities
+        M = np.random.rand(d, c)
+        M = M / np.sum(M, axis=0, keepdims=True)
+
+        # Averagins supervised and weak components
+        M = alpha * I + (1-alpha) * M
+
     elif method == 'IPL':
 
         # Shape M
