@@ -129,12 +129,16 @@ def format_diary_df(df):
     return df
 
 
-def get_dataset_df(folder):
+def get_dataset_df(folder, keep_time=False):
     filename = os.path.join(folder, 'dataset.csv')
     df = pd.read_csv(filename, header=None, quotechar='|',
             infer_datetime_format=True)
     df = format_diary_df(df)
-    df.drop(['entry_n', 'subentry_n', 'date', 'time'], axis=1, inplace=True)
+    if keep_time:
+        to_drop = ['entry_n', 'subentry_n']
+    else:
+        to_drop = ['entry_n', 'subentry_n', 'date', 'time']
+    df.drop(to_drop, axis=1, inplace=True)
     return df
 
 
@@ -145,7 +149,7 @@ def get_results_df(folder):
     return df
 
 def extract_summary(folder):
-    dataset_df = get_dataset_df(folder)
+    dataset_df = get_dataset_df(folder, keep_time=True)
     results_df = get_results_df(folder)
 
     dataset_df['folder'] = folder
@@ -256,6 +260,11 @@ def main(folder='results', summary_path='', filter_rows={}):
     for key, value in filter_rows.items():
         df = df[df[key].str.contains(value)]
 
+    df.sort(columns=['date', 'time'], ascending=True, inplace=True)
+    df.drop_duplicates(subset=['method', 'method2', 'n_classes', 'n_features',
+                               'name', 'sim', 'size', 'tag'], inplace=True,
+                               keep='first')
+
     export_datasets_info(df, path=summary_path)
 
     friedman_test(df, 'tag', 'loss_val')
@@ -325,8 +334,7 @@ def main(folder='results', summary_path='', filter_rows={}):
         for index in indices:
             for column in columns:
                 df2 = pd.pivot_table(df, values=value, index=index,
-                                     columns=column,
-                                     aggfunc=len).astype(int)
+                        columns=column, aggfunc=len, fill_value=0).astype(int)
                 fig = plot_df_heatmap(df2, title='Number of experiments',
                                       cmap=plt.cm.Greys)
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
@@ -368,8 +376,8 @@ def main(folder='results', summary_path='', filter_rows={}):
                                         fig_extension), path=summary_path)
 
                         df2 = pd.pivot_table(df, values=value, index=index,
-                                 columns=column,
-                                 aggfunc=len).astype(int)
+                                             columns=column, aggfunc=len,
+                                             fill_value=0).astype(int)
                         fig = plot_df_heatmap(df2, title='Number of experiments',
                                               cmap=plt.cm.Greys)
                         savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
