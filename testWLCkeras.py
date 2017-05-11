@@ -21,6 +21,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
+from sklearn.utils import shuffle
 
 # My modules
 import wlc.WLclassifier as wlc
@@ -32,6 +33,7 @@ from testUtils import plot_data, plot_results, evaluateClassif
 from diary import Diary
 
 warnings.filterwarnings("ignore")
+seed = 42
 
 # Parameters for sklearn synthetic data
 openml_ids = {'iris': 61, 'pendigits': 32, 'glass': 41, 'segment': 36,
@@ -54,7 +56,7 @@ def parse_arguments():
                       type=str, help=('List of datasets or toy examples to'
                                       'test separated by with no spaces.'))
     # Parameters for sklearn synthetic data
-    parser.add_option('-s', '--n-samples', dest='ns', default=400,
+    parser.add_option('-s', '--n-samples', dest='ns', default=2000,
                       type=int, help='Number of samples if toy dataset.')
     parser.add_option('-f', '--n-features', dest='nf', default=2,
                       type=int, help='Number of features if toy dataset.')
@@ -71,7 +73,7 @@ def parse_arguments():
     parser.add_option('-r', '--rho', dest='rho', default=0.0002,
                       type=float,
                       help='Learning step for the Gradient Descent')
-    parser.add_option('-i', '--n-iterations', dest='n_it', default=20,
+    parser.add_option('-i', '--n-iterations', dest='n_it', default=10,
                       type=int, help=('Number of iterations of '
                                       'Gradient Descent.'))
     parser.add_option('-e', '--method', dest='method', default='quasi_IPL',
@@ -92,7 +94,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
     problem_list = problems.split(',')
 
     for problem in problem_list:
-        np.random.seed(42)
+        np.random.seed(seed)
         ############################
         # ## Create a Diary for all the logs and results
         diary = Diary(name='testWLCkeras', path='results', overwrite=False,
@@ -134,6 +136,8 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
             X = enc.fit_transform(X)  # Categorical to binary
             ns = X.shape[0]           # Sample size
             nf = X.shape[1]             # Data dimension
+            # Assegurar que los valores en Y son correctos para todos los
+            # resultados
             n_classes = y.max()+1      # Number of classes
         elif problem == 'blobs':
             X, y = skd.make_blobs(n_samples=ns, n_features=nf,
@@ -151,6 +155,8 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
             raise("Problem type unknown: {}".format(problem))
         X = Imputer(missing_values='NaN', strategy='mean').fit_transform(X)
         X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
+
+        X, y = shuffle(X, y, random_state=seed)
 
         # Convert y into a binary matrix
         y_bin = label_binarize(y, range(n_classes))
@@ -289,15 +295,15 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         v_dict[tag] = y
         tag_list.append(tag)
 
-        # ##########################
-        # Supervised learning (BFGS)
-        tag = 'Superv-BFGS'
-        title[tag] = 'Learning from clean labels with BFGS:'
-        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-                                              optimizer='BFGS', params=params)
-        n_jobs[tag] = -1
-        v_dict[tag] = y
-        tag_list.append(tag)
+#        # ##########################
+#        # Supervised learning (BFGS)
+#        tag = 'Superv-BFGS'
+#        title[tag] = 'Learning from clean labels with BFGS:'
+#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+#                                              optimizer='BFGS', params=params)
+#        n_jobs[tag] = -1
+#        v_dict[tag] = y
+#        tag_list.append(tag)
 
         # ############################################
         # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
@@ -338,15 +344,15 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         v_dict[tag] = z_bin
         tag_list.append(tag)
 
-        # ############################################
-        # Virtual Label Learning with Gradient Descent
-        tag = 'Weak-BFGS'
-        title[tag] = 'CC-VLL with BFGS'
-        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                              optimizer='BFGS', params=params)
-        n_jobs[tag] = -1
-        v_dict[tag] = z_bin
-        tag_list.append(tag)
+#        # ############################################
+#        # Virtual Label Learning with Gradient Descent
+#        tag = 'Weak-BFGS'
+#        title[tag] = 'CC-VLL with BFGS'
+#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                              optimizer='BFGS', params=params)
+#        n_jobs[tag] = -1
+#        v_dict[tag] = z_bin
+#        tag_list.append(tag)
 
         # ############################################
         # Training with the weak labels with Stochastic Gradient Descent
@@ -386,15 +392,15 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         v_dict[tag] = z_bin
         tag_list.append(tag)
 
-        # ############################################
-        # Optimistic Superset Learning (OSL) with BFGS
-        tag = 'OSL-BFGS'
-        title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
-        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-                                              optimizer='BFGS', params=params)
-        n_jobs[tag] = -1
-        v_dict[tag] = z_bin
-        tag_list.append(tag)
+#        # ############################################
+#        # Optimistic Superset Learning (OSL) with BFGS
+#        tag = 'OSL-BFGS'
+#        title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
+#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+#                                              optimizer='BFGS', params=params)
+#        n_jobs[tag] = -1
+#        v_dict[tag] = z_bin
+#        tag_list.append(tag)
 
         # ############################################
         # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
@@ -437,15 +443,15 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         v_dict[tag] = v[v_method]
         tag_list.append(tag)
 
-        # # ############################################
-        # # Add hoc M-proper loss with BFGS
-        tag = '{}-BFGS'.format(v_method)
-        title[tag] = 'M-proper loss with Gradient Descent'
-        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                              optimizer='BFGS', params=params)
-        n_jobs[tag] = -1
-        v_dict[tag] = v[v_method]
-        tag_list.append(tag)
+#        # # ############################################
+#        # # Add hoc M-proper loss with BFGS
+#        tag = '{}-BFGS'.format(v_method)
+#        title[tag] = 'M-proper loss with Gradient Descent'
+#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                              optimizer='BFGS', params=params)
+#        n_jobs[tag] = -1
+#        v_dict[tag] = v[v_method]
+#        tag_list.append(tag)
 
         # ############################################
         # Miquel: LR M-proper loss with Stochastic Gradient Descent
@@ -486,18 +492,18 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         v_dict[tag] = v[v_method]
         tag_list.append(tag)
 
-        # ###################################################
-        # Virtual Label Learning with BFGS and regularization
-        #
-        tag = 'VLL-{}-BFGS'.format(v_method)
-        title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-        # TODO see if default params are not that bad
-        #params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
-        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                              optimizer='BFGS', params=params)
-        n_jobs[tag] = -1
-        v_dict[tag] = v[v_method]
-        tag_list.append(tag)
+#        # ###################################################
+#        # Virtual Label Learning with BFGS and regularization
+#        #
+#        tag = 'VLL-{}-BFGS'.format(v_method)
+#        title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
+#        # TODO see if default params are not that bad
+#        #params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
+#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                              optimizer='BFGS', params=params)
+#        n_jobs[tag] = -1
+#        v_dict[tag] = v[v_method]
+#        tag_list.append(tag)
 
         # ############################################
         # Miquel: virtual labels assuming quasi_IPL loss with SGD
