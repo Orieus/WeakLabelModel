@@ -8,6 +8,7 @@ from matplotlib import cm
 
 import ipdb
 
+# A constant for the smallest positive real.
 EPS = np.nextafter(0, 1)
 
 
@@ -25,6 +26,7 @@ def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
                            'l01'    :zero-one loss
                            'DD'     :Decision directed loss (also called OSL)
                            'JS'     :Jensen-Shannon divergence
+                           'L1'     :L1 distance
 
             The following parameters are used to compute weak losses
             B
@@ -43,6 +45,8 @@ def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
         loss[np.argmax(q)] = 0
     elif loss_name == 'DD':
         bloss = - np.log(np.max(Z * q + EPS, axis=1, keepdims=True))
+    elif loss_name == 'L1':
+        loss = np.sum(np.abs(np.eye(dim) - q), 1).T
 
     # ## Average loss
     if loss_name == 'DD':
@@ -69,7 +73,7 @@ def compute_simplex(loss_name, V, U, M, Z, eta, N=300):
     delta = np.linspace(-1, 1, N)   # Values of q0-q1;
 
     MinLossij = 1e10
-    meanloss = np.zeros((N, N))
+    meanloss = np.ma.masked_array(np.zeros((N, N)))
 
     B = np.dot(M.T, np.dot(np.linalg.inv(V.T), U))
 
@@ -85,18 +89,22 @@ def compute_simplex(loss_name, V, U, M, Z, eta, N=300):
             if np.all(q >= 0):
 
                 # The point is in the probability triange. Evaluate loss
-                meanloss[i][j] = compute_loss(q, eta, loss_name, B, M, Z)
+                meanloss[i, j] = compute_loss(q, eta, loss_name, B, M, Z)
 
                 # Locate the position of the minimum loss
-                if meanloss[i][j] < MinLossij:
-                    MinLossij = meanloss[i][j]
+                if meanloss[i, j] < MinLossij:
+                    MinLossij = meanloss[i, j]
                     destMin = delta[i]
                     pestMin = p[j]
 
             else:
 
                 # The point is out of the probability simplex.
-                meanloss[i][j] = np.inf
+                # WARNING: surprisingly enough, the command below does not work
+                # if I use meanloss[i][j] instead of meanloss[i, j]
+                # if loss_name=='log' and i==0 and j==0:
+                #     ipdb.set_trace()
+                meanloss[i, j] = np.ma.masked
 
     return meanloss, destMin, pestMin
 
@@ -109,8 +117,10 @@ def main():
     # Configurable parameters
 
     # Parameters
-    eta = np.array([0.35, 0.2, 0.45])  # Location of the minimum
-    loss_name = 'DD'         # 'square', 'log', 'l01' or 'DD'
+    eta = np.array([0.35, 0.2, 0.45])       # Location of the minimum
+    loss_names = ['square', 'log', 'DD']    # 'square', 'log', 'l01' or 'DD'
+    tags = ['Brier', 'CE', 'OSL']
+    n_loss = len(loss_names)
 
     # ## Possible weak labels
     Z = np.array([[1.0, 0, 0, 1, 1, 0],
@@ -136,18 +146,13 @@ def main():
     M = np.array([[0.6, 0,   0,   0.2, 0.2, 0],
                   [0,   0.8, 0,   0.1, 0,   0.1],
                   [0,   0,   0.4, 0,   0.3, 0.3]]).T
+    d, c = M.shape
 
     # Parameters for the plots
-    fs = 14   # Font size
+    fs = 12   # Font size
 
-    # ###################
-    # ## Loss computation
-
-    # Compute loss values over the probability simplex
-    d, c = M.shape
-    meanloss, destMin, pestMin = compute_simplex(loss_name, V, U, M, Z, eta)
-
-    # ## Locate minimum
+    # Other common parameters
+    # ## Location of the  minimum
     pMin = eta[2]
     dMin = eta[1] - eta[0]
 
@@ -156,62 +161,71 @@ def main():
     p = np.linspace(0, 1, N)        # Values of q2;
     delta = np.linspace(-1, 1, N)   # Values of q0-q1;
 
-    # ## Paint loss surface
-    meanloss = np.minimum(meanloss, 2)
-    mlMax = np.max(np.max(meanloss))
-    mlMin = np.min(np.min(meanloss))
-    scaledmeanloss = 0.0 + 1.0 * (meanloss - mlMin) / (mlMax - mlMin)
-
     # This is a scale factor to make sure that the plotted triangle is
     # equilateral
     alpha = 1 / np.sqrt(3)
 
-    # Contour plot
-    # from matplotlib import colors,
-    fig = plt.figure()
-    ax2 = fig.add_subplot(111)
-    xx, yy = np.meshgrid(p, delta)
-    levs = np.linspace(0, 1, 50)
-    mask = scaledmeanloss == np.inf
-    scaledmeanloss[mask] = np.ma.masked
+    # Saturated values. These values have been tested experimentally:
+    vmax = {'square': 1,
+            'log': 1.3,
+            'l01': 1,
+            'DD': 1.2,
+            'JS': 2,
+            'L1': 2}
 
-    ax2.contourf(alpha * yy, xx, scaledmeanloss, levs, cmap=cm.hsv)
+    fig = plt.figure(figsize=(4 * n_loss, 2.6))
 
-    # Plot true posterior
-    ax2.scatter(alpha * dMin, pMin, color='g')
-    ax2.text(alpha * dMin + 0.025, pMin, '$\eta$', size=fs)
+    for i, loss_name in enumerate(loss_names):
 
-    # Plot minimum (estimated posterior)
-    ax2.scatter(alpha * destMin, pestMin, color='k')
-    ax2.text(alpha * destMin + 0.025, pestMin, '$\eta^*$', size=fs)
-    ax2.plot([-alpha, 0, alpha, -alpha], [0, 1, 0, 0], '-')
-    ax2.axis('off')
+        print loss_name
 
-    # ## Write labels
-    ax2.text(-0.74, 0, '$(1,0,0)$', size=fs)
-    ax2.text(0.59, 0, '$(0,1,0)$', size=fs)
-    ax2.text(0.05, 0.96, '$(0,0,1)$', size=fs)
-    # ax2.axis('off')
-    ax2.axis('equal')
+        # ###################
+        # ## Loss computation
 
-    # plt.text(0, -0.66, 0, '{\bf e}_0', 'FontName', 'Times New Roman', 'FontSize',
-    #          fs)
-    # plt.text(0, 0.59, 0, '{\bf e}_1', 'FontName', 'Times New Roman', 'FontSize',
-    #          fs)
-    # plt.text(0.98, 0.03,  0, '{\bf e}_2', 'FontName', 'Times New Roman',
-    #          'FontSize', fs)
-    # plt.text(pMin, alpha * dMin + 0.04,  0, '\eta', 'FontName', 'Times New Roman',
-    #          'FontSize', fs)
-    # plt.text(pestMin, alpha * destMin + 0.04, 0, '\eta^*', 'FontName',
-    #          'Times New Roman', 'FontSize', fs)
-    # plt.text(pestMin + 0.02, alpha * destMin + 0.04, 0, '^', 'FontName',
-    #          'Times New Roman', 'FontSize', fs)
+        # Compute loss values over the probability simplex
+        meanloss, destMin, pestMin = compute_simplex(loss_name, V, U, M, Z,
+                                                     eta)
+
+        # ## Paint loss surface
+        meanloss[meanloss > vmax[loss_name]] = vmax[loss_name]
+
+        mlMax = np.max(np.max(meanloss))
+        mlMin = np.min(np.min(meanloss))
+        scaledmeanloss = 0.0 + 1.0 * (meanloss - mlMin) / (mlMax - mlMin)
+
+        # Contour plot
+        # from matplotlib import colors,
+        ax2 = fig.add_subplot(1, n_loss, i + 1)
+        xx, yy = np.meshgrid(p, delta)
+        levs = np.linspace(0, vmax[loss_name], 10)
+        mask = scaledmeanloss == np.inf
+
+        scaledmeanloss[mask] = np.ma.masked
+
+        ax2.contourf(alpha * yy, xx, scaledmeanloss, levs, cmap=cm.Blues)
+
+        # Plot true posterior
+        ax2.scatter(alpha * dMin, pMin, color='g')
+        ax2.text(alpha * dMin + 0.025, pMin, '$\eta$', size=fs)
+
+        # Plot minimum (estimated posterior)
+        ax2.scatter(alpha * destMin, pestMin, color='k')
+        ax2.text(alpha * destMin + 0.025, pestMin, '$\eta^*$', size=fs)
+        ax2.plot([-alpha, 0, alpha, -alpha], [0, 1, 0, 0], '-')
+        ax2.axis('off')
+
+        # ## Write labels
+        ax2.text(-0.74, -0.1, '$(1,0,0)$', size=fs)
+        ax2.text(0.49, -0.1, '$(0,1,0)$', size=fs)
+        ax2.text(0.05, 0.96, '$(0,0,1)$', size=fs)
+        ax2.axis('equal')
+
+        ax2.set_title(tags[i], size=fs)
 
     plt.show(block=False)
-    plt.savefig('example.png')
-
     ipdb.set_trace()
 
+    plt.savefig('example.png')
 
     # if LossName == 'square':
     #     hgsave('SquareLoss')
