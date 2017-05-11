@@ -69,6 +69,9 @@ def parse_arguments():
                       type=str, help=('Loss function to minimize between '
                                       'square (brier score) or CE (cross '
                                       'entropy)'))
+    parser.add_option('-u', '--path-results', dest='path_results',
+                      default='results', type=str,
+                      help=('Path to save the results'))
     # Parameters of the classiffier fit method
     parser.add_option('-r', '--rho', dest='rho', default=0.0002,
                       type=float,
@@ -96,7 +99,7 @@ def parse_arguments():
 # ## MAIN #####################################################################
 ###############################################################################
 def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
-        alpha, beta):
+        alpha, beta, path_results):
 
     problem_list = problems.split(',')
 
@@ -104,7 +107,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
         np.random.seed(seed)
         ############################
         # ## Create a Diary for all the logs and results
-        diary = Diary(name='testWLCkeras', path='results', overwrite=False,
+        diary = Diary(name='testWLCkeras', path=path_results, overwrite=False,
                       image_format='png', fig_format='svg')
         diary.add_notebook('dataset')
         diary.add_notebook('validation')
