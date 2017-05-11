@@ -2,11 +2,9 @@
 import sys
 import itertools
 import os
-from os import listdir
 from os import walk
 from argparse import ArgumentParser
 
-import csv
 import pandas as pd
 import numpy as np
 from scipy.stats import friedmanchisquare
@@ -15,10 +13,10 @@ from weasyprint import HTML
 
 import matplotlib
 matplotlib.use('Agg')
-#matplotlib.style.use('ggplot')
 import matplotlib.pyplot as plt
 
 fig_extension = 'svg'
+
 
 def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
     filename = os.path.join(path, figname)
@@ -98,6 +96,7 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     fig.tight_layout()
     return fig
 
+
 def get_list_results_folders(folder, return_unfinished=False):
     essentials = ['description.txt', 'dataset.csv']
     finished = ['pd_df_results.csv']
@@ -120,19 +119,19 @@ def format_diary_df(df):
     df[2] = pd.to_datetime(df[2])
     df[3] = pd.to_timedelta(df[3], unit='s')
 
-    new_column_names = {0:'entry_n', 1:'subentry_n', 2:'date', 3:'time'}
-    for i in range(5,df.shape[1],2):
-        new_column_names[i] = df.ix[0,i-1]
+    new_column_names = {0: 'entry_n', 1: 'subentry_n', 2: 'date', 3: 'time'}
+    for i in range(5, df.shape[1], 2):
+        new_column_names[i] = df.ix[0, i-1]
     df.rename(columns=new_column_names, inplace=True)
 
-    df.drop(list(range(4,df.shape[1],2)), axis=1, inplace=True)
+    df.drop(list(range(4, df.shape[1], 2)), axis=1, inplace=True)
     return df
 
 
 def get_dataset_df(folder, keep_time=False):
     filename = os.path.join(folder, 'dataset.csv')
     df = pd.read_csv(filename, header=None, quotechar='|',
-            infer_datetime_format=True)
+                     infer_datetime_format=True)
     df = format_diary_df(df)
     if keep_time:
         to_drop = ['entry_n', 'subentry_n']
@@ -147,6 +146,7 @@ def get_results_df(folder):
     df = pd.read_csv(filename, quotechar='|', infer_datetime_format=True,
                      index_col=0)
     return df
+
 
 def extract_summary(folder):
     dataset_df = get_dataset_df(folder, keep_time=True)
@@ -169,20 +169,40 @@ def extract_unfinished_summary(folder):
 
 
 def export_datasets_info(df, path='', stylesheets=['style.css']):
-    columns = ['name', 'size', 'n_features', 'n_classes']
+    columns = ['name', 'size', 'n_features', 'n_classes', 'seconds']
     sort_by = ['name']
     index = columns[0]
-    html_out = df[columns].drop_duplicates().sort_values(sort_by).set_index(index).to_html()
+    df_by_seconds = df[columns].sort_values('seconds', ascending=False)
+    df_table = df_by_seconds.drop_duplicates(subset=columns[:-1],
+                                             keep='first'
+                                             ).sort_values(sort_by
+                                                           ).set_index(index)
+    # Export to LaTeX
+    df_table.drop('seconds', axis=1).to_latex(os.path.join(path,
+                                                           "datasets.tex"))
+
+    # Add mean performance of best model
+    best_tag = df.groupby('tag')['loss_val'].mean().argmin()
+    mean_loss_best_tag = df[df.tag == best_tag][['name', 'loss_val']].groupby(by='name').mean().round(decimals=2)
+    mean_loss_best_tag = mean_loss_best_tag.rename(columns={'loss_val': 'mean(superv_loss)'})
+    df_table = pd.concat([df_table, mean_loss_best_tag], axis=1)
+
+    # Export to pdf
+    html_out = df_table.to_html()
     filename = os.path.join(path, "datasets.pdf")
     HTML(string=html_out).write_pdf(filename, stylesheets=stylesheets)
 
+    return df_table
 
-def export_df(df, filename, path='', extension='pdf', stylesheets=['style.css']):
+
+def export_df(df, filename, path='', extension='pdf',
+              stylesheets=['style.css']):
     if extension == 'pdf':
         html_out = df.to_html()
         filename = os.path.join(path, filename)
         HTML(string=html_out).write_pdf("{}.{}".format(filename, extension),
                                         stylesheets=stylesheets)
+
 
 def friedman_test(df, index, column):
     indices = np.sort(df[index].unique())
@@ -190,7 +210,7 @@ def friedman_test(df, index, column):
     results = {}
     first = True
     for ind in indices:
-        results[ind] = df[df[index]==ind][column].values
+        results[ind] = df[df[index] == ind][column].values
         if first:
             size = results[ind].shape[0]
             first = False
@@ -203,15 +223,21 @@ def friedman_test(df, index, column):
     return statistic, pvalue
 
 
-def wilcoxon_rank_sum_test(df, index, column, signed=False,
-                                      twosided=True):
+def wilcoxon_rank_sum_test(df, index, column, signed=False, twosided=True):
     indices = np.sort(df[index].unique())
     results = {}
-    for index1 in indices:
-        results[index1] = df[df[index]==index1][column]
+    for i, index1 in enumerate(indices):
+        results[index1] = df[df[index] == index1][column]
+        # Ensure that the results are paired by dataset and simulation
+        if i == 0:
+            experiments = df[df[index] == index1][['sim', 'name']].values
+        else:
+            np.testing.assert_equal(experiments,
+                                    df[df[index] == index1][['sim',
+                                                             'name']].values)
 
     stat = []
-    for (index1, index2) in itertools.combinations(indices,2):
+    for (index1, index2) in itertools.combinations(indices, 2):
         if index1 != index2:
             if signed:
                 statistic, pvalue = wilcoxon(results[index1].values,
@@ -222,13 +248,15 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
             if not twosided:
                 pvalue /= 2
             stat.append(pd.DataFrame([[index1, index2, statistic, pvalue]],
-                columns=['index1', 'index2', 'statistic', 'p-value']))
+                                     columns=['index1', 'index2', 'statistic',
+                                              'p-value']))
 
     dfstat = pd.concat(stat, axis=0, ignore_index=True)
     return dfstat
 
 
-def main(folder='results', summary_path='', filter_rows={}):
+def main(folder='results', summary_path='', filter_rows={},
+         filter_performance=1.0):
     results_folders, unfin_folders = get_list_results_folders(folder, True)
 
     # Creates summary path if it does not exist
@@ -263,11 +291,15 @@ def main(folder='results', summary_path='', filter_rows={}):
     df.sort(columns=['date', 'time'], ascending=True, inplace=True)
     df.drop_duplicates(subset=['method', 'method2', 'n_classes', 'n_features',
                                'name', 'sim', 'size', 'tag'], inplace=True,
-                               keep='first')
+                       keep='first')
 
-    export_datasets_info(df, path=summary_path)
+    df_datasets = export_datasets_info(df, path=summary_path)
+    # Filter by best datasets
+    best_datasets = df_datasets[df_datasets['mean(superv_loss)'] <= filter_performance].index
+    df = df[df['name'].isin(best_datasets)]
 
-    friedman_test(df, 'tag', 'loss_val')
+    #friedman_test(df, 'tag', 'loss_val')
+    print("Performing Wilcoxon rank sum test")
     df_wilc = wilcoxon_rank_sum_test(df, 'tag', 'loss_val')
     export_df(df_wilc, 'wilcoxon_rank_sum_test', path=summary_path, extension='pdf')
     df_wilc_square = df_wilc.pivot_table(index='index1', columns='index2',
@@ -290,17 +322,17 @@ def main(folder='results', summary_path='', filter_rows={}):
             # grouped = df[idx].groupby([groupby])
             grouped = df.groupby([groupby])
 
-            df2 = pd.DataFrame({col:vals[column] for col,vals in grouped})
+            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
             meds = df2.median()
             meds.sort(ascending=False)
             df2 = df2[meds.index]
 
-            fig = plt.figure(figsize=(10,len(meds)/2+3))
+            fig = plt.figure(figsize=(10, len(meds)/2+3))
             ax = df2.boxplot(vert=False)
             ax.set_title('results grouped by {}'.format(groupby))
 
-            counts =  {k:len(v) for k,v in grouped}
-            ax.set_yticklabels(['%s\n$n$=%d'%(k,counts[k]) for k in meds.keys()])
+            counts =  {k: len(v) for k, v in grouped}
+            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
             ax.set_xlabel(column)
             savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
                                                      fig_extension), path=summary_path)
@@ -322,6 +354,19 @@ def main(folder='results', summary_path='', filter_rows={}):
                                       cmap=plt.cm.Greys)
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
                             index, column, value, fig_extension), path=summary_path)
+
+
+    ########################################################################
+    # Heatmap of finished experiments name vs method
+    ########################################################################
+    df2 = pd.pivot_table(df, values='loss_val', index='name', columns='method',
+                         aggfunc=len)
+    df2 = df2.fillna(0).astype(int)
+    fig = plot_df_heatmap(df2, title='Number of experiments',
+                          cmap=plt.cm.Greys)
+    savefig_and_close(fig,
+                      'name_vs_method_heatmap_count.{}'.format(fig_extension),
+                      path=summary_path)
 
     ########################################################################
     # Heatmap of models vs method or dataset
@@ -396,8 +441,11 @@ def main(folder='results', summary_path='', filter_rows={}):
 
 
 def __test_1():
-    main('results', summary_path='keras_lr', filter_rows={'tag':'Keras-LR'})
-    main('results', summary_path='all', filter_rows={})
+    main('results', summary_path='keras_lr', filter_rows={'tag':'Keras-LR'},
+            filter_performance=0.7)
+    main('results', summary_path='keras_mlp', filter_rows={'tag':'Keras-MLP'},
+            filter_performance=0.7)
+    main('results', summary_path='all', filter_rows={}, filter_performance=0.5)
     sys.exit(0)
 
 
