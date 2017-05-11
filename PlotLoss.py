@@ -223,9 +223,8 @@ def main():
         ax2.set_title(tags[i], size=fs)
 
     plt.show(block=False)
-    ipdb.set_trace()
 
-    plt.savefig('example.png')
+    plt.savefig('example.svg')
 
     # if LossName == 'square':
     #     hgsave('SquareLoss')
