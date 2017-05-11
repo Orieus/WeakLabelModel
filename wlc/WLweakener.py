@@ -57,7 +57,6 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'random_noise':
 
-        # FIXME I thought the rows should sum to one... See the reason
         M = np.random.rand(c, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
@@ -65,7 +64,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'random_weak':
 
-        # Number or rows. Equal to 2**c to simiulate a scenario where all
+        # Number or rows. Equal to 2**c to simulate a scenario where all
         # possible binary label vectors are possible.
         d = 2**c
 
@@ -78,7 +77,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         M = np.random.rand(d, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
-        # Averagins supervised and weak components
+        # Averaging supervised and weak components
         M = alpha * Ic + (1-alpha) * M
 
     elif method == 'IPL':
