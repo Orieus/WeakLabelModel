@@ -73,6 +73,12 @@ def parse_arguments():
     parser.add_option('-r', '--rho', dest='rho', default=0.0002,
                       type=float,
                       help='Learning step for the Gradient Descent')
+    parser.add_option('-a', '--alpha', dest='alpha', default=0.5,
+                      type=float,
+                      help='Alpha probability parameter')
+    parser.add_option('-b', '--beta', dest='beta', default=0.5,
+                      type=float,
+                      help='Beta probability parameter')
     parser.add_option('-i', '--n-iterations', dest='n_it', default=10,
                       type=int, help=('Number of iterations of '
                                       'Gradient Descent.'))
@@ -89,7 +95,8 @@ def parse_arguments():
 ###############################################################################
 # ## MAIN #####################################################################
 ###############################################################################
-def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
+def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
+        alpha, beta):
 
     problem_list = problems.split(',')
 
@@ -105,8 +112,6 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2):
         ############################
         # ## Configurable parameters
         # Parameters of the weak label model
-        alpha = 0.5
-        beta = 0.5
         gamma = 0.5
 
         #####################
