@@ -51,7 +51,7 @@ n_it = 4*ns           # Number of iterations
 alpha = 0.8
 beta = 0.2
 gamma = 0.2
-method = 'quasi_IPL' # 'quasi_IPL' | 'random_noise' | 'noisy'
+method = 'quasi_IPL'    # 'IPL' | 'quasi_IPL' | 'random_noise' | 'noisy'
 method2 = 'Mproper'
 # method = 'quasi_IPL_old'
 
