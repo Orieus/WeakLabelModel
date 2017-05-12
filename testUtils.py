@@ -6,6 +6,7 @@ import errno
 
 import numpy as np
 import sklearn.cross_validation as skcv
+from sklearn.utils import shuffle
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -191,11 +192,13 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         # Self evaluation.
         # First, we compute leave-one-out predictions
         n_folds = min(10, ns)
-        preds = skcv.cross_val_predict(classif, X, v, cv=n_folds, verbose=0,
-                                       n_jobs=n_jobs)
+
+        X_shuff, v_shuff, y_shuff = shuffle(X, v, y, random_state=i)
+        preds = skcv.cross_val_predict(classif, X_shuff, v_shuff, cv=n_folds,
+                                       verbose=0, n_jobs=n_jobs)
 
         # Estimate error rates:s
-        Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
+        Pe_cv[i] = float(np.count_nonzero(y_shuff != preds)) / ns
 
         print ('\tAveraging {0} simulations. Estimated time to finish '
                '{1:0.4f}s.\r').format(n_sim,
