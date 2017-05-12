@@ -1,19 +1,25 @@
-#!/usr/bin/env sh
+#!/bin/bash
 
-python summarize_results.py -p 1.0 --filter '{"tag":"Keras-MLP"}' \
-    ../results_a8_b2/ summary_keras-MLP_a8_b2
-python summarize_results.py -p 0.7 --filter '{"tag":"Keras-MLP"}' \
-    ../results_a8_b2/ summary_keras-MLP_a8_b2_performance_lt07
-python summarize_results.py -p 1.0 --filter '{"tag":"Keras-MLP"}' \
-    ../results_a5_b5/ summary_keras-MLP_a5_b5
-python summarize_results.py -p 0.7 --filter '{"tag":"Keras-MLP"}' \
-    ../results_a5_b5/ summary_keras-MLP_a5_b5_performance_lt07
+declare -a filters=(
+    'Keras-MLP'
+    'Keras-LR'
+    )
 
-python summarize_results.py -p 1.0 --filter '{"tag":"Keras-LR"}' \
-    ../results_a8_b2/ summary_keras-LR_a8_b2
-python summarize_results.py -p 0.7 --filter '{"tag":"Keras-LR"}' \
-    ../results_a8_b2/ summary_keras-LR_a8_b2_performance_lt07
-python summarize_results.py -p 1.0 --filter '{"tag":"Keras-LR"}' \
-    ../results_a5_b5/ summary_keras-LR_a5_b5
-python summarize_results.py -p 0.7 --filter '{"tag":"Keras-LR"}' \
-    ../results_a5_b5/ summary_keras-LR_a5_b5_performance_lt07
+declare -a results=(
+    'a5_b5'
+    'a8_b2'
+    )
+
+declare -a performances=(
+    1.0
+    0.7
+    )
+
+for filter in ${filters[@]}; do
+    for result in ${results[@]}; do
+        for p in ${performances[@]}; do
+            python summarize_results.py -p ${p} --filter '{"tag":"'${filter}'"}' "../results_${result}/" "summary_${filter}_${result}_lt${p//./}"
+            cp "summary_${filter}_${result}_lt${p//./}/tag_vs_method_loss_val_heatmap_None.svg" "tag_vs_method_loss_val_heatmap_${filter}_${result}_lt${p//./}.svg"
+        done
+    done
+done
