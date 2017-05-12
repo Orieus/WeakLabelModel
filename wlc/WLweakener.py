@@ -192,36 +192,12 @@ def computeVirtual(z, c, method='IPL', M=None):
         v
     """
 
-    z_bin = np.zeros((z.size, c), dtype=float)         # weak labels (binary)
     v = np.zeros((z.size, c))             # virtual labels
 
-    for index, i in enumerate(z):         # From dec to bin
+    if method == 'noisy' or method == 'supervised':
 
-        z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
-
-    if method == 'IPL' or method == 'supervised':
-        # weak and virtual are the same
-        pass
-
-    elif method == 'quasi_IPL':    # quasi-independent labels
-
-        for index, i in enumerate(z_bin):
-
-            aux = z_bin[index, :]
-            weak_pos = np.sum(aux)
-
-            if not weak_pos == c:
-
-                weak_zero = float(1-weak_pos)/(c-weak_pos)
-                aux[aux == 0] = weak_zero
-                z_bin[index, :] = aux
-
-            else:
-
-                # FIXME We need z_bin to be of floats instead of integers if we
-                # want to assign an array of None (see if it is possible to
-                # solve)
-                z_bin[index, :] = np.array([None] * c)
+        for index, i in enumerate(z):         # From dec to bin
+            v[index, i] = 1
 
     elif method == 'Mproper':
         # Compute the virtual label matrix
@@ -230,11 +206,43 @@ def computeVirtual(z, c, method='IPL', M=None):
         # Compute the virtual label.
         for index, i in enumerate(z):
             # The virtual label for weak label i is the i-th row in Y
-            z_bin[index, :] = Y[:, int(i)]
-    else:
-        print 'Unknown method. Weak label taken as virtual'
+            v[index, :] = Y[:, int(i)]
 
-    v = z_bin
+    else:
+
+        # Transform the weak label indices in z into binary label vectors
+        z_bin = np.zeros((z.size, c), dtype=float)       # weak labels (binary)
+        for index, i in enumerate(z):         # From dec to bin
+            z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
+
+        if method == 'IPL':
+            # weak and virtual are the same
+            pass
+
+        elif method == 'quasi_IPL':    # quasi-independent labels
+
+            for index, i in enumerate(z_bin):
+
+                aux = z_bin[index, :]
+                weak_pos = np.sum(aux)
+
+                if not weak_pos == c:
+
+                    weak_zero = float(1-weak_pos)/(c-weak_pos)
+                    aux[aux == 0] = weak_zero
+                    z_bin[index, :] = aux
+
+                else:
+
+                    # FIXME We need z_bin to be of floats instead of integers
+                    # if we want to assign an array of None (see if it is
+                    # possible to solve)
+                    z_bin[index, :] = np.array([None] * c)
+
+        else:
+            print 'Unknown method. Weak label taken as virtual'
+
+        v = z_bin
 
     return v
 
