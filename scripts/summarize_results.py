@@ -5,6 +5,7 @@ import os
 from os import walk
 from argparse import ArgumentParser
 
+import json
 import pandas as pd
 import numpy as np
 from scipy.stats import friedmanchisquare
@@ -255,9 +256,9 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False, twosided=True):
     return dfstat
 
 
-def main(folder='results', summary_path='', filter_rows={},
+def main(results_path='results', summary_path='', filter_rows={},
          filter_performance=1.0):
-    results_folders, unfin_folders = get_list_results_folders(folder, True)
+    results_folders, unfin_folders = get_list_results_folders(results_path, True)
 
     # Creates summary path if it does not exist
     if not os.path.exists(summary_path):
@@ -266,14 +267,21 @@ def main(folder='results', summary_path='', filter_rows={},
     u_summaries = []
     for uf in unfin_folders:
         u_summaries.append(extract_unfinished_summary(uf))
-    dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
 
-    print("The following experiments did not finish")
-    print(dfs_unf)
+    if len(u_summaries) > 0 :
+        dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
+
+        print("The following experiments did not finish")
+        print(dfs_unf)
 
     f_summaries = []
     for rf in results_folders:
         f_summaries.append(extract_unfinished_summary(rf))
+
+    if len(f_summaries) == 0 :
+        print("There are no finished experiments")
+        return
+
     dfs_fin = pd.concat(f_summaries, axis=0, ignore_index=True)
 
     print("The following experiments did finish")
@@ -456,11 +464,19 @@ def parse_arguments():
     parser.add_argument("results_path", metavar='PATH', type=str,
                         default='results',
                         help="Path with the result folders to summarize.")
+    parser.add_argument("summary_path", metavar='SUMMARY', type=str,
+                        default='',
+                        help="Path to store the summary.")
+    parser.add_argument("-p", "--performance", metavar='PERFORMANCE',
+                        type=float, default=1.0, dest='filter_performance',
+                        help="Filter all the datasets with supervised performance lower than the specified value")
+    parser.add_argument("-f", "--filter", type=json.loads,
+                        default='{}', dest='filter_rows',
+                        help="Dictionary with columns and filters.")
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    __test_1()
-
-    #args = parse_arguments()
-    #main(args.results_path)
+    args = parse_arguments()
+    # TODO implement filter arguments
+    main(**vars(args))
