@@ -9,8 +9,8 @@ c = 4
 y = np.array([0,1,2,3])
 y_bin = label_binarize(y, range(c))
 
-a = 1.0
-b = 0.0
+a = 0.99
+b = 0.01
 
 for method in methods:
     print('\n#### ANALYZING M from {} ####'.format(method))

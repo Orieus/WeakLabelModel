@@ -71,7 +71,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         # Supervised component: Identity matrix with size d x c.
         Ic = np.zeros((d, c))
         for i in xrange(c):
-            Ic[2**i, i] = 1
+            Ic[2**(c-i-1), i] = 1
 
         # Weak component: Random weak label proabilities
         M = np.random.rand(d, c)
