@@ -177,17 +177,6 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     start = time.clock()
     # ## Loop over simulation runs
     for i in xrange(n_sim):
-        # ########################
-        # Ground truth evaluation:
-        #   Training with the given virtual labels (by default true labels)
-        classif.fit(X, v)
-        f = classif.predict_proba(X)
-
-        # Then, we evaluate this classifier with all true labels
-        # Note that training and test samples are being used in this error rate
-        d = np.argmax(f, axis=1)
-        Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
-
         # ##############
         # Self evaluation.
         # First, we compute leave-one-out predictions
@@ -199,6 +188,17 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
 
         # Estimate error rates:s
         Pe_cv[i] = float(np.count_nonzero(y_shuff != preds)) / ns
+
+        # ########################
+        # Ground truth evaluation:
+        #   Training with the given virtual labels (by default true labels)
+        classif.fit(X, v)
+        f = classif.predict_proba(X)
+
+        # Then, we evaluate this classifier with all true labels
+        # Note that training and test samples are being used in this error rate
+        d = np.argmax(f, axis=1)
+        Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
 
         print ('\tAveraging {0} simulations. Estimated time to finish '
                '{1:0.4f}s.\r').format(n_sim,
