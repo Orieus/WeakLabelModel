@@ -5,6 +5,7 @@
 import numpy as np
 # from numpy import binary_repr
 import sklearn.datasets as skd           # Needs version 0.14 or higher
+from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 import sys
 import ipdb
@@ -137,34 +138,41 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         M = M / np.sum(M, axis=0)
 
     else:
-
-        print "Error: unknown value of input argumen method in computeM"
-        sys.exit()
+        raise ValueError("Unknown method to compute M: {}".format(method))
 
     return M
 
 
-def generateWeak(y, M, c):
+def generateWeak(y, M):
     """
     Generate the set of weak labels z for n examples, given the ground truth
     labels y for n examples, a mixing matrix M, and a number of classes c.
+
+    Args:
+        y   :List of true labels with values from 0 to c-1 where c is the
+            number of classes
+        M   :Mixing matrix of shape (c, c) or (2**c, c).
+    Returns:
+        z   :List of weak labels. Each weak label is an integer whose binary
+            representation encodes the boserved weak labels.
     """
 
     z = np.zeros(y.shape, dtype=int)  # Weak labels for all labels y (int)
     d = M.shape[0]               # Number of weak labels
-    # d = 2 ** c                   # Number of weak labels
+    c = M.shape[1]
+    assert(d == c or d == 2**c)
     dec_labels = np.arange(d)    # Possible weak labels (int)
 
     for index, i in enumerate(y):
         z[index] = np.random.choice(dec_labels, 1, p=M[:, i])
 
+    if c == d:
+        z = 2**(c-z-1)
+
     return z
 
 
-def dec_to_bin(z, c):
-    return computeVirtual(z, c, method='IPL', M=None)
-
-def binarizeWeakLabels(z, c, method='IPL'):
+def binarizeWeakLabels(z, c):
     """
     Binarizes the weak labels depending on the method used to generate the weak
     labels.
@@ -174,68 +182,15 @@ def binarizeWeakLabels(z, c, method='IPL'):
                  binary representation encondes the observed weak labels
         c       :Number of classes. All components of z must be smaller than
                  2**c
-        method  :Method applied to compute the binary weak labels z_bin.
-                 Available methods are:
-                 - 'IPL'  : Independet Partial Labels. Takes virtual label
-                            vectors equal to the binary representations of the
-                            the weak labels in z
-                 - 'supervised': Equivalent to IPL
     Returns:
         z_bin
     """
+    # Transform the weak label indices in z into binary label vectors
+    z_bin = np.zeros((z.size, c), dtype=int)       # weak labels (binary)
+    for index, i in enumerate(z):         # From dec to bin
+        z_bin[index, :] = [int(x) for x in np.binary_repr(i, width=c)]
 
-    method = 'IPL' if method in ['IPL', 'quasi_IPL', 'random_weak'] else 'supervised'
-
-    z_bin = np.zeros((z.size, c))             # virtual labels
-
-    if method == 'noisy' or method == 'supervised':
-
-        for index, i in enumerate(z):         # From dec to bin
-            z_bin[index, i] = 1
-
-    elif method == 'Mproper':
-        # Compute the virtual label matrix
-        Y = np.linalg.pinv(M)
-
-        # Compute the virtual label.
-        for index, i in enumerate(z):
-            # The virtual label for weak label i is the i-th row in Y
-            z_bin[index, :] = Y[:, int(i)]
-
-    else:
-        # Transform the weak label indices in z into binary label vectors
-        z_bin = np.zeros((z.size, c), dtype=float)       # weak labels (binary)
-        for index, i in enumerate(z):         # From dec to bin
-            z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
-
-        if method == 'IPL':
-            # weak and virtual are the same
-            pass
-
-        elif method == 'quasi_IPL':    # quasi-independent labels
-
-            for index, i in enumerate(z_bin):
-
-                aux = z_bin[index, :]
-                weak_pos = np.sum(aux)
-
-                if not weak_pos == c:
-
-                    weak_zero = float(1-weak_pos)/(c-weak_pos)
-                    aux[aux == 0] = weak_zero
-                    z_bin[index, :] = aux
-
-                else:
-
-                    # FIXME We need z_bin to be of floats instead of integers
-                    # if we want to assign an array of None (see if it is
-                    # possible to solve)
-                    z_bin[index, :] = np.array([None] * c)
-
-        else:
-            print 'Unknown method. Weak label taken as virtual'
-
-    return z_bin.astype(int)
+    return z_bin
 
 
 def computeVirtual(z, c, method='IPL', M=None):
@@ -251,70 +206,51 @@ def computeVirtual(z, c, method='IPL', M=None):
                  2**c
         method  :Method applied to compute the virtual label vector v.
                  Available methods are:
-                 - 'IPL'  : Independet Partial Labels. Takes virtual label
-                            vectors equal to the binary representations of the
-                            the weak labels in z
-                 - 'supervised': Equivalent to IPL
-                 - 'Mproper'   : Computes virtual labels for a M-proper loss.
-                 - 'MCC'       : Computes virtual labels for a M-CC loss
+                 - 'supervised' :Takes virtual label vectors equal to the
+                                 binary representations of the weak labels in z
+
+                 - 'IPL'        :Independet Partial Labels. Equivalent to
+                                 supervised
+                 - 'quasi_IPL'  :Computes virtual labels assuming that the
+                                 mixing matrix M was 'quasi_IPL' without
+                                 knowing the M
+                 - 'Mproper'    :Computes virtual labels for a M-proper loss.
+                 - 'MCC'        :Computes virtual labels for a M-CC loss
                                  (Not available yet)
         M       :Mixing matrix. Only for methods 'Mproper' and 'MCC'
 
     Returns:
         v
     """
-
-    v = np.zeros((z.size, c))             # virtual labels
-
-    if method in ['noisy', 'supervised', 'random_noise']:
-
-        for index, i in enumerate(z):         # From dec to bin
-            v[index, i] = 1
-
+    if method in ['supervised', 'IPL']:
+        v = binarizeWeakLabels(z, c)
+    elif method == 'quasi_IPL':    # quasi-independent labels
+        v = binarizeWeakLabels(z, c).astype(float)
+        for index in range(len(v)):
+            aux = v[index, :]
+            weak_sum = np.sum(aux)
+            if weak_sum != c:
+                weak_zero = float(1-weak_sum)/(c-weak_sum)
+                aux[aux == 0] = weak_zero
+                v[index, :] = aux
+            else:
+                # TODO MPN I changed Nans to zeros. Is this important?
+                # v[index, :] = np.array([None] * c)
+                v[index, :] = np.zeros(c)
     elif method == 'Mproper':
+        v = np.zeros((z.size, c))
         # Compute the virtual label matrix
         Y = np.linalg.pinv(M)
-
+        # If mixing matrix is square, weak labels need to be transformed from
+        # 2**c to c optional values
+	if M.shape[0] == M.shape[1]:
+            z = c-np.log2(z)-1
         # Compute the virtual label.
         for index, i in enumerate(z):
             # The virtual label for weak label i is the i-th row in Y
             v[index, :] = Y[:, int(i)]
-
     else:
-
-        # Transform the weak label indices in z into binary label vectors
-        z_bin = np.zeros((z.size, c), dtype=float)       # weak labels (binary)
-        for index, i in enumerate(z):         # From dec to bin
-            z_bin[index, :] = [int(x) for x in bin(int(i))[2:].zfill(c)]
-
-        if method == 'IPL':
-            # weak and virtual are the same
-            pass
-
-        elif method == 'quasi_IPL':    # quasi-independent labels
-
-            for index, i in enumerate(z_bin):
-
-                aux = z_bin[index, :]
-                weak_pos = np.sum(aux)
-
-                if not weak_pos == c:
-
-                    weak_zero = float(1-weak_pos)/(c-weak_pos)
-                    aux[aux == 0] = weak_zero
-                    z_bin[index, :] = aux
-
-                else:
-
-                    # FIXME We need z_bin to be of floats instead of integers
-                    # if we want to assign an array of None (see if it is
-                    # possible to solve)
-                    z_bin[index, :] = np.array([None] * c)
-
-        else:
-            print 'Unknown method. Weak label taken as virtual'
-
-        v = z_bin
+        raise ValueError("Unknown method to create virtual labels: {}".format(method))
 
     return v
 

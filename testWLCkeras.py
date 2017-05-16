@@ -195,7 +195,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     #                        case discussed in the paper.
     M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
                      method=method)
-    z = wlw.generateWeak(y, M, n_classes)
+    z = wlw.generateWeak(y, M)
     # Compute the virtual labels
     #         Available methods are:
     #         - 'IPL'  : Independet Partial Labels. Takes virtual label
@@ -211,7 +211,13 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
         v[v_method] = wlw.computeVirtual(z, n_classes, method=v_method, M=M)
 
     # Convert z to a list of binary lists (this is for the OSL alg)
-    z_bin = wlw.binarizeWeakLabels(z, n_classes, method=method)
+    z_bin = wlw.binarizeWeakLabels(z, n_classes)
+
+    if alpha == 1.0 and beta == 0.0:
+        np.testing.assert_equal(y_bin, z_bin)
+        np.testing.assert_equal(y_bin, v['IPL'])
+        np.testing.assert_equal(y_bin, v['quasi_IPL'])
+        np.testing.assert_equal(y_bin, v['Mproper'])
 
     #######################################
     # Explanation of the different labels
@@ -278,86 +284,86 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     Pe_tr_mean = {}
     Pe_cv_mean = {}
     params = {'rho': rho, 'n_it': n_it, 'loss': loss}
-    params_keras = {'n_epoch': n_it}
+    params_keras = {'n_epoch': n_it, 'random_seed': 0}
     tag_list = []
 
-    #######################################################################
-    # BASELINES:
-    # 1. Upper bound: Training with Original labels
-    #
-    # ###################
-    # Supervised learning
-    tag = 'Supervised'
-    title[tag] = 'Learning from clean labels:'
-    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-                                          optimizer='GD', params=params)
-    n_jobs[tag] = -1
-    v_dict[tag] = y
-    tag_list.append(tag)
-
-#        # ##########################
-#        # Supervised learning (BFGS)
-#        tag = 'Superv-BFGS'
-#        title[tag] = 'Learning from clean labels with BFGS:'
-#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-#                                              optimizer='BFGS', params=params)
-#        n_jobs[tag] = -1
-#        v_dict[tag] = y
-#        tag_list.append(tag)
+#    #######################################################################
+#    # BASELINES:
+#    # 1. Upper bound: Training with Original labels
+#    #
+#    # ###################
+#    # Supervised learning
+#    tag = 'Supervised'
+#    title[tag] = 'Learning from clean labels:'
+#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+#                                          optimizer='GD', params=params)
+#    n_jobs[tag] = -1
+#    v_dict[tag] = y
+#    tag_list.append(tag)
+#
+##        # ##########################
+##        # Supervised learning (BFGS)
+##        tag = 'Superv-BFGS'
+##        title[tag] = 'Learning from clean labels with BFGS:'
+##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+##                                              optimizer='BFGS', params=params)
+##        n_jobs[tag] = -1
+##        v_dict[tag] = y
+##        tag_list.append(tag)
 
     # ############################################
     # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
     tag = 'Keras-LR-Superv-SGD'
-    title[tag] = 'Keras M-proper loss with Stochastic Gradient Descent'
+    title[tag] = 'Keras LR trained with true labels with Stochastic Gradient Descent'
     wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                               output_size=n_classes,
                                               optimizer='SGD',
                                               params=params_keras)
     n_jobs[tag] = -1
-    v_dict[tag] = y_bin
+    v_dict[tag] = y_bin.astype(float)
     tag_list.append(tag)
 
-    # ############################################
-    # Miquel: MLP supervised with Stochastic Gradient Descent
-    tag = 'Keras-MLP-Superv-SGD'
-    title[tag] = 'Keras MLP Supervised loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-                                                output_size=n_classes,
-                                                optimizer='SGD',
-                                                params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = y_bin
-    tag_list.append(tag)
-
-    #######################################################################
-    # BASELINES:
-    # 2. Lower bound: Training with weak labels
-    # 2.a : Also case where we assume IPL mixing matrix M
-    #
-    # ############################################
-    # Virtual Label Learning with Gradient Descent
-    tag = 'Weak-GD'
-    title[tag] = 'CC-VLL with Gradient Descent'
-    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                          optimizer='GD', params=params)
-    n_jobs[tag] = -1
-    v_dict[tag] = z_bin
-    tag_list.append(tag)
-
-#        # ############################################
-#        # Virtual Label Learning with Gradient Descent
-#        tag = 'Weak-BFGS'
-#        title[tag] = 'CC-VLL with BFGS'
-#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                              optimizer='BFGS', params=params)
-#        n_jobs[tag] = -1
-#        v_dict[tag] = z_bin
-#        tag_list.append(tag)
+#    # ############################################
+#    # Miquel: MLP supervised with Stochastic Gradient Descent
+#    tag = 'Keras-MLP-Superv-SGD'
+#    title[tag] = 'Keras MLP Supervised loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+#                                                output_size=n_classes,
+#                                                optimizer='SGD',
+#                                                params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = y_bin
+#    tag_list.append(tag)
+#
+#    #######################################################################
+#    # BASELINES:
+#    # 2. Lower bound: Training with weak labels
+#    # 2.a : Also case where we assume IPL mixing matrix M
+#    #
+#    # ############################################
+#    # Virtual Label Learning with Gradient Descent
+#    tag = 'Weak-GD'
+#    title[tag] = 'CC-VLL with Gradient Descent'
+#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                          optimizer='GD', params=params)
+#    n_jobs[tag] = -1
+#    v_dict[tag] = z_bin
+#    tag_list.append(tag)
+#
+##        # ############################################
+##        # Virtual Label Learning with Gradient Descent
+##        tag = 'Weak-BFGS'
+##        title[tag] = 'CC-VLL with BFGS'
+##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+##                                              optimizer='BFGS', params=params)
+##        n_jobs[tag] = -1
+##        v_dict[tag] = z_bin
+##        tag_list.append(tag)
 
     # ############################################
     # Training with the weak labels with Stochastic Gradient Descent
     tag = 'Keras-LR-Weak-SGD'
-    title[tag] = 'Keras Logistic regression Weak loss with Stochastic GD'
+    title[tag] = 'Keras LR trained with weak labels with Stochastic GD'
     wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                               output_size=n_classes,
                                               optimizer='SGD',
@@ -366,41 +372,41 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     v_dict[tag] = z_bin
     tag_list.append(tag)
 
-    # ############################################
-    # Training with the weak labels loss with Stochastic Gradient Descent
-    tag = 'Keras-MLP-Weak-SGD'
-    title[tag] = 'Keras MLP Weak loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-                                                output_size=n_classes,
-                                                optimizer='SGD',
-                                                params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = z_bin
-    tag_list.append(tag)
-
-    #######################################################################
-    # BASELINES:
-    # 3. Competitor: Optimistic Superset Learning and weak labels
-    #
-    # ##################################
-    # Optimistic Superset Learning (OSL)
-    tag = 'OSL'
-    title[tag] = 'Optimistic Superset Loss (OSL)'
-    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-                                          optimizer='GD', params=params)
-    n_jobs[tag] = -1
-    v_dict[tag] = z_bin
-    tag_list.append(tag)
-
-#        # ############################################
-#        # Optimistic Superset Learning (OSL) with BFGS
-#        tag = 'OSL-BFGS'
-#        title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
-#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-#                                              optimizer='BFGS', params=params)
-#        n_jobs[tag] = -1
-#        v_dict[tag] = z_bin
-#        tag_list.append(tag)
+#    # ############################################
+#    # Training with the weak labels loss with Stochastic Gradient Descent
+#    tag = 'Keras-MLP-Weak-SGD'
+#    title[tag] = 'Keras MLP Weak loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+#                                                output_size=n_classes,
+#                                                optimizer='SGD',
+#                                                params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = z_bin
+#    tag_list.append(tag)
+#
+#    #######################################################################
+#    # BASELINES:
+#    # 3. Competitor: Optimistic Superset Learning and weak labels
+#    #
+#    # ##################################
+#    # Optimistic Superset Learning (OSL)
+#    tag = 'OSL'
+#    title[tag] = 'Optimistic Superset Loss (OSL)'
+#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+#                                          optimizer='GD', params=params)
+#    n_jobs[tag] = -1
+#    v_dict[tag] = z_bin
+#    tag_list.append(tag)
+#
+##        # ############################################
+##        # Optimistic Superset Learning (OSL) with BFGS
+##        tag = 'OSL-BFGS'
+##        title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
+##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
+##                                              optimizer='BFGS', params=params)
+##        n_jobs[tag] = -1
+##        v_dict[tag] = z_bin
+##        tag_list.append(tag)
 
     # ############################################
     # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
@@ -415,43 +421,43 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     v_dict[tag] = z_bin
     tag_list.append(tag)
 
-    # ############################################
-    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-    tag = 'Keras-MLP-OSL-SGD'
-    title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-                                                output_size=n_classes,
-                                                optimizer='SGD',
-                                                OSL=True,
-                                                params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = z_bin
-    tag_list.append(tag)
-
-    #######################################################################
-    # OUR PROPOSED METHODS:
-    # 1. Upper bound (if we know M): Training with Mproper virtual labels
-    #
-    v_method = 'Mproper'
-    # # ############################################
-    # # Add hoc M-proper loss with Gradient Descent
-    tag = '{}-GD'.format(v_method)
-    title[tag] = 'M-proper loss with Gradient Descent'
-    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                          optimizer='GD', params=params)
-    n_jobs[tag] = -1
-    v_dict[tag] = v[v_method]
-    tag_list.append(tag)
-
-#        # # ############################################
-#        # # Add hoc M-proper loss with BFGS
-#        tag = '{}-BFGS'.format(v_method)
-#        title[tag] = 'M-proper loss with Gradient Descent'
-#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                              optimizer='BFGS', params=params)
-#        n_jobs[tag] = -1
-#        v_dict[tag] = v[v_method]
-#        tag_list.append(tag)
+#    # ############################################
+#    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+#    tag = 'Keras-MLP-OSL-SGD'
+#    title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+#                                                output_size=n_classes,
+#                                                optimizer='SGD',
+#                                                OSL=True,
+#                                                params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = z_bin
+#    tag_list.append(tag)
+#
+#    #######################################################################
+#    # OUR PROPOSED METHODS:
+#    # 1. Upper bound (if we know M): Training with Mproper virtual labels
+#    #
+#    v_method = 'Mproper'
+#    # # ############################################
+#    # # Add hoc M-proper loss with Gradient Descent
+#    tag = '{}-GD'.format(v_method)
+#    title[tag] = 'M-proper loss with Gradient Descent'
+#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                          optimizer='GD', params=params)
+#    n_jobs[tag] = -1
+#    v_dict[tag] = v[v_method]
+#    tag_list.append(tag)
+#
+##        # # ############################################
+##        # # Add hoc M-proper loss with BFGS
+##        tag = '{}-BFGS'.format(v_method)
+##        title[tag] = 'M-proper loss with Gradient Descent'
+##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+##                                              optimizer='BFGS', params=params)
+##        n_jobs[tag] = -1
+##        v_dict[tag] = v[v_method]
+##        tag_list.append(tag)
 
     # ############################################
     # Miquel: LR M-proper loss with Stochastic Gradient Descent
@@ -465,50 +471,50 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
-    # ############################################
-    # Miquel: MLP M-proper loss with Stochastic Gradient Descent
-    tag = 'Keras-MLP-{}-SGD'.format(v_method)
-    title[tag] = 'Keras MLP M-proper loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-                                                output_size=n_classes,
-                                                optimizer='SGD',
-                                                params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = v[v_method]
-    tag_list.append(tag)
-
-    #######################################################################
-    # OUR PROPOSED METHODS:
-    # 2. If we assume quasi_IPL M: Training with virtual labels for q_IPL
-    #
+#    # ############################################
+#    # Miquel: MLP M-proper loss with Stochastic Gradient Descent
+#    tag = 'Keras-MLP-{}-SGD'.format(v_method)
+#    title[tag] = 'Keras MLP M-proper loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+#                                                output_size=n_classes,
+#                                                optimizer='SGD',
+#                                                params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = v[v_method]
+#    tag_list.append(tag)
+#
+#    #######################################################################
+#    # OUR PROPOSED METHODS:
+#    # 2. If we assume quasi_IPL M: Training with virtual labels for q_IPL
+#    #
     v_method = 'quasi_IPL'
-    # ############################################
-    # Virtual Label Learning with Gradient Descent
-    tag = 'VLL-{}-GD'.format(v_method)
-    title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
-    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-                                          optimizer='GD', params=params)
-    n_jobs[tag] = -1
-    v_dict[tag] = v[v_method]
-    tag_list.append(tag)
-
-#        # ###################################################
-#        # Virtual Label Learning with BFGS and regularization
-#        #
-#        tag = 'VLL-{}-BFGS'.format(v_method)
-#        title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-#        # TODO see if default params are not that bad
-#        #params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
-#        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                              optimizer='BFGS', params=params)
-#        n_jobs[tag] = -1
-#        v_dict[tag] = v[v_method]
-#        tag_list.append(tag)
+#    # ############################################
+#    # Virtual Label Learning with Gradient Descent
+#    tag = 'VLL-{}-GD'.format(v_method)
+#    title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
+#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+#                                          optimizer='GD', params=params)
+#    n_jobs[tag] = -1
+#    v_dict[tag] = v[v_method]
+#    tag_list.append(tag)
+#
+##        # ###################################################
+##        # Virtual Label Learning with BFGS and regularization
+##        #
+##        tag = 'VLL-{}-BFGS'.format(v_method)
+##        title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
+##        # TODO see if default params are not that bad
+##        #params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
+##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
+##                                              optimizer='BFGS', params=params)
+##        n_jobs[tag] = -1
+##        v_dict[tag] = v[v_method]
+##        tag_list.append(tag)
 
     # ############################################
     # Miquel: virtual labels assuming quasi_IPL loss with SGD
     tag = 'Keras-LR-VLL-{}-SGD'.format(v_method)
-    title[tag] = 'Keras Logistic regression VLL loss with Stochastic GD'
+    title[tag] = 'Keras Logistic regression VLL ({}) loss with Stochastic GD'.format(v_method)
     wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
                                               output_size=n_classes,
                                               optimizer='SGD',
@@ -517,17 +523,17 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
-    # ############################################
-    # Miquel: MLP assuming quasi_IPL with Stochastic Gradient Descent
-    tag = 'Keras-MLP-VLL-{}-SGD'.format(v_method)
-    title[tag] = 'Keras MLP VLL loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-                                                output_size=n_classes,
-                                                optimizer='SGD',
-                                                params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = v[v_method]
-    tag_list.append(tag)
+#    # ############################################
+#    # Miquel: MLP assuming quasi_IPL with Stochastic Gradient Descent
+#    tag = 'Keras-MLP-VLL-{}-SGD'.format(v_method)
+#    title[tag] = 'Keras MLP VLL loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
+#                                                output_size=n_classes,
+#                                                optimizer='SGD',
+#                                                params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = v[v_method]
+#    tag_list.append(tag)
 
     # ############
     # Evaluation and plot of each model

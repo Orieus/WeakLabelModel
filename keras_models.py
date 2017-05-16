@@ -59,13 +59,21 @@ def brier_loss(y_true, y_pred):
 # FIXME add the parameter rho to the gradient descent
 class KerasModel(object):
     def __init__(self, input_size, output_size, optimizer='SGD',
-                 batch_size=None, class_weights=None, OSL=False, params={}):
+                 batch_size=None, class_weights=None, OSL=False, params={},
+                 random_seed=None):
         self.input_size = input_size
         self.output_size = output_size
         self.batch_size = batch_size
         self.params = params
         self.optimizer = optimizer
         self.OSL = OSL
+        if 'random_seed' in params.keys():
+            random_seed = params['random_seed']
+        self.random_seed = random_seed
+
+        # TODO see why I can not initialize the seed just before I call compile
+        if self.random_seed is not None:
+            np.random.seed(self.random_seed)
 
         model = self.create_model(input_size, output_size)
 
@@ -191,13 +199,14 @@ class KerasModel(object):
         return {"input_size": self.input_size, "output_size": self.output_size,
                 "optimizer": self.optimizer, "batch_size": self.batch_size,
                 "class_weights": self.class_weights, "params": self.params,
-                "OSL": self.OSL}
+                "OSL": self.OSL, "random_seed": self.random_seed}
 
 
 class KerasWeakLogisticRegression(KerasModel):
     def create_model(self, input_size, output_size):
         model = Sequential()
-        model.add(Dense(output_size, input_shape=(input_size,)))
+        model.add(Dense(output_size, input_shape=(input_size,),
+                        kernel_initializer='glorot_uniform'))
         model.add(Activation('softmax'))
         return model
 
@@ -205,9 +214,9 @@ class KerasWeakLogisticRegression(KerasModel):
 class KerasWeakMultilayerPerceptron(KerasModel):
     def create_model(self, input_size, output_size):
         model = Sequential()
-        model.add(Dense(200, input_shape=(input_size,)))
+        model.add(Dense(200, input_shape=(input_size,), kernel_initializer='glorot_uniform'))
         model.add(Activation('relu'))
-        model.add(Dense(200))
+        model.add(Dense(200, kernel_initializer='glorot_uniform'))
         model.add(Activation('relu'))
         model.add(Dropout(0.5))
         model.add(Dense(output_size))
