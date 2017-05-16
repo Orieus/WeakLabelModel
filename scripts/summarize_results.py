@@ -43,7 +43,7 @@ class MyFloat(float):
 
 
 def plot_df_heatmap(df, normalize=None, title='Heat-map',
-                    cmap=plt.cm.Blues):
+                    cmap=plt.cm.Blues, colorbar=False):
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
@@ -56,19 +56,16 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
 
     if normalize == 'rows':
         M = M.astype('float') / M.sum(axis=1)[:, np.newaxis]
-        print("Normalized rows heat-map")
     if normalize == 'cols':
         M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
-        print("Normalized cols heat-map")
-    else:
-        print('Heat-map, without normalization')
 
     h_size = max(7, len(columns)*.8)
     v_size = max(7, len(rows)*.8)
     fig = plt.figure(figsize=(h_size, v_size))
     ax = fig.add_subplot(111)
     im = ax.imshow(M, interpolation='nearest', cmap=cmap)
-    fig.colorbar(im)
+    if colorbar:
+        fig.colorbar(im)
     ax.set_title(title)
     column_tick_marks = np.arange(len(columns))
     ax.set_xticks(column_tick_marks)
@@ -294,12 +291,21 @@ def main(results_path='results', summary_path='', filter_rows={},
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
     for key, value in filter_rows.items():
-        df = df[df[key].str.contains(value)]
+        if df[key].dtype == 'object':
+            df = df[df[key].str.contains(value)]
+        else:
+            df = df[df[key] == float(value)]
+
+    # Remove results with different parameters alpha and beta
+    alpha = df['alpha'].unique()[0]
+    df = df[df['alpha'] == alpha]
+    beta = df['beta'].unique()[0]
+    df = df[df['beta'] == beta]
 
     df.sort(columns=['date', 'time'], ascending=True, inplace=True)
     df.drop_duplicates(subset=['method', 'method2', 'n_classes', 'n_features',
                                'name', 'sim', 'size', 'tag'], inplace=True,
-                       keep='first')
+                       keep='last')
 
     df_datasets = export_datasets_info(df, path=summary_path)
     # Filter by best datasets
@@ -396,8 +402,9 @@ def main(results_path='results', summary_path='', filter_rows={},
                     df2 = pd.pivot_table(df, values=value, index=index,
                                          columns=column,
                                          aggfunc=np.mean)
-                    fig = plot_df_heatmap(df2, normalize=norm,
-                                          title='Heat-map (normalized {})'.format(norm))
+                    title = 'Mean ER (a={}, b={}, {})'.format(
+                            alpha, beta, norm)
+                    fig = plot_df_heatmap(df2, normalize=norm, title=title)
                     savefig_and_close(fig, '{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension), path=summary_path)
 
