@@ -53,8 +53,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'noisy':
 
-        M = (np.eye(c) * (1-beta-beta/(c-1)) +
-             np.ones((c, c)) * beta/(c-1))
+        M = (np.eye(c) * (alpha - (1-alpha)/(c-1))
+             + np.ones((c, c)) * (1-alpha)/(c-1))
 
     elif method == 'random_noise':
 
@@ -223,7 +223,7 @@ def computeVirtual(z, c, method='IPL', M=None):
         v
     """
     if method in ['supervised', 'IPL']:
-        v = binarizeWeakLabels(z, c)
+        v = binarizeWeakLabels(z, c).astype(float)
     elif method == 'quasi_IPL':    # quasi-independent labels
         v = binarizeWeakLabels(z, c).astype(float)
         for index in range(len(v)):
@@ -235,8 +235,8 @@ def computeVirtual(z, c, method='IPL', M=None):
                 v[index, :] = aux
             else:
                 # TODO MPN I changed Nans to zeros. Is this important?
-                # v[index, :] = np.array([None] * c)
-                v[index, :] = np.zeros(c)
+                v[index, :] = np.array([None] * c)
+                #v[index, :] = np.zeros(c)
     elif method == 'Mproper':
         v = np.zeros((z.size, c))
         # Compute the virtual label matrix

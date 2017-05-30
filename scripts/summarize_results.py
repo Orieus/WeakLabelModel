@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import friedmanchisquare
 from scipy.stats import wilcoxon, ranksums
+import cairocffi as cairo
 from weasyprint import HTML
 
 import matplotlib
@@ -59,8 +60,8 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     if normalize == 'cols':
         M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
 
-    h_size = max(7, len(columns)*.8)
-    v_size = max(7, len(rows)*.8)
+    h_size = len(columns)*.5 + 2
+    v_size = len(rows)*.5 + 2
     fig = plt.figure(figsize=(h_size, v_size))
     ax = fig.add_subplot(111)
     im = ax.imshow(M, interpolation='nearest', cmap=cmap)
@@ -180,10 +181,10 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
                                                            "datasets.tex"))
 
     # Add mean performance of best model
-    best_tag = df.groupby('tag')['loss_val'].mean().argmin()
-    mean_loss_best_tag = df[df.tag == best_tag][['name', 'loss_val']].groupby(by='name').mean().round(decimals=2)
-    mean_loss_best_tag = mean_loss_best_tag.rename(columns={'loss_val': 'mean(superv_loss)'})
-    df_table = pd.concat([df_table, mean_loss_best_tag], axis=1)
+    best_model = df.groupby('model')['loss_val'].mean().argmin()
+    mean_loss_best_model = df[df.model == best_model][['name', 'loss_val']].groupby(by='name').mean().round(decimals=2)
+    mean_loss_best_model = mean_loss_best_model.rename(columns={'loss_val': 'mean(superv_loss)'})
+    df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
 
     # Export to pdf
     html_out = df_table.to_html()
@@ -221,19 +222,22 @@ def friedman_test(df, index, column):
     return statistic, pvalue
 
 
-def wilcoxon_rank_sum_test(df, index, column, signed=False, twosided=True):
+def wilcoxon_rank_sum_test(df, index, column, signed=False,
+                           twosided=True):
     indices = np.sort(df[index].unique())
     results = {}
     for i, index1 in enumerate(indices):
         results[index1] = df[df[index] == index1][column]
-        # Ensure that the results are paired by dataset and simulation
+        # Ensures that all the results are aligned by simulation number (column
+        # sim), dataset (column name) and mixing_matrix_M
         if i == 0:
-            experiments = df[df[index] == index1][['sim', 'name']].values
+            experiments = df[df[index] == index1][['sim', 'mixing_matrix_M',
+                                                   'name']].values
         else:
             np.testing.assert_equal(experiments,
                                     df[df[index] == index1][['sim',
+                                                             'mixing_matrix_M',
                                                              'name']].values)
-
     stat = []
     for (index1, index2) in itertools.combinations(indices, 2):
         if index1 != index2:
@@ -255,6 +259,9 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False, twosided=True):
 
 def main(results_path='results', summary_path='', filter_rows={},
          filter_performance=1.0):
+    print('\n#########################################################')
+    print('##### Making summary of folder {}'.format(results_path))
+    print('#')
     results_folders, unfin_folders = get_list_results_folders(results_path, True)
 
     # Creates summary path if it does not exist
@@ -268,8 +275,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     if len(u_summaries) > 0 :
         dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
 
-        print("The following experiments did not finish")
-        print(dfs_unf)
+        print("Experiments that did not finish: {}".format(len(u_summaries)))
 
     f_summaries = []
     for rf in results_folders:
@@ -281,8 +287,7 @@ def main(results_path='results', summary_path='', filter_rows={},
 
     dfs_fin = pd.concat(f_summaries, axis=0, ignore_index=True)
 
-    print("The following experiments did finish")
-    print(dfs_fin)
+    print("Experiments finished: {}".format(len(f_summaries)))
 
     summaries = []
     for rf in results_folders:
@@ -290,7 +295,9 @@ def main(results_path='results', summary_path='', filter_rows={},
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
+    print("Filtering only rows that contain")
     for key, value in filter_rows.items():
+        print("- [{}] = {}".format(key, value))
         if df[key].dtype == 'object':
             df = df[df[key].str.contains(value)]
         else:
@@ -302,9 +309,28 @@ def main(results_path='results', summary_path='', filter_rows={},
     beta = df['beta'].unique()[0]
     df = df[df['beta'] == beta]
 
-    df.sort(columns=['date', 'time'], ascending=True, inplace=True)
-    df.drop_duplicates(subset=['method', 'method2', 'n_classes', 'n_features',
-                               'name', 'sim', 'size', 'tag'], inplace=True,
+    # Remove synthetic datasets
+    df = df[~df['name'].str.contains('blobs|gauss_quantiles')]
+
+    print("Analyzing experiments with alpha={} & beta={}".format(alpha, beta))
+    df.rename(columns={'tag': 'model', 'method': 'mixing_matrix_M'},
+              inplace=True)
+
+    df.replace({'model': {'Keras-LR-Superv-SGD': '(1) LR-Superv',
+                          'Keras-LR-Mproper-SGD': '(2) LR-Mproper',
+                          'Keras-LR-Weak-SGD': '(3) LR-Weak',
+                          'Keras-LR-VLL-quasi_IPL-SGD': '(4) LR-qIPL',
+                          'Keras-LR-OSL-SGD': '(5) LR-OSL',
+                          'Keras-MLP-Superv-SGD': '(1) FNN-Superv',
+                          'Keras-MLP-Mproper-SGD': '(2) FNN-Mproper',
+                          'Keras-MLP-Weak-SGD': '(3) FNN-Weak',
+                          'Keras-MLP-VLL-quasi_IPL-SGD': '(4) FNN-qIPL',
+                          'Keras-MLP-OSL-SGD': '(5) FNN-OSL'}}, inplace=True)
+
+    df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
+    df.drop_duplicates(subset=['mixing_matrix_M', 'method2', 'n_classes',
+                               'n_features', 'name', 'sim', 'size', 'model'],
+                       inplace=True,
                        keep='last')
 
     df_datasets = export_datasets_info(df, path=summary_path)
@@ -312,24 +338,46 @@ def main(results_path='results', summary_path='', filter_rows={},
     best_datasets = df_datasets[df_datasets['mean(superv_loss)'] <= filter_performance].index
     df = df[df['name'].isin(best_datasets)]
 
-    #friedman_test(df, 'tag', 'loss_val')
+    #friedman_test(df, 'model', 'loss_val')
     print("Performing Wilcoxon rank sum test")
-    df_wilc = wilcoxon_rank_sum_test(df, 'tag', 'loss_val')
-    export_df(df_wilc, 'wilcoxon_rank_sum_test', path=summary_path, extension='pdf')
+    mixing_matrices_M = df['mixing_matrix_M'].unique()
+    for mmM in mixing_matrices_M:
+        print("- Mixing matrix M is {}".format(mmM))
+        df_wilc = wilcoxon_rank_sum_test(df[df['mixing_matrix_M'] == mmM],
+                                         'model', 'loss_val', twosided=False)
+        export_df(df_wilc, 'wilc_r_s_test_{}'.format(mmM),
+                  path=summary_path, extension='pdf')
+        df_wilc_square = df_wilc.pivot_table(index='index1', columns='index2',
+                                             values='p-value')
+        export_df(df_wilc_square,
+                  'wilc_r_s_test_square_{}'.format(mmM),
+                  path=summary_path, extension='pdf')
+        fig = plot_df_heatmap(df_wilc_square,
+                              title='W-r-s-t p-v {}'.format(mmM),
+                              cmap=plt.cm.Greys)
+        savefig_and_close(fig, 'wilc_r_s_test_{}.{}'.format(
+                          mmM, fig_extension), path=summary_path)
+
+    mmM = 'all'
+    print("- Mixing matrix M is {}".format(mmM))
+    df_wilc = wilcoxon_rank_sum_test(df, 'model', 'loss_val', twosided=False)
+    export_df(df_wilc, 'wilc_r_s_test_{}'.format(mmM),
+              path=summary_path, extension='pdf')
     df_wilc_square = df_wilc.pivot_table(index='index1', columns='index2',
                                          values='p-value')
-    export_df(df_wilc_square, 'wilcoxon_rank_sum_test_square',
+    export_df(df_wilc_square,
+              'wilc_r_s_test_square_{}'.format(mmM),
               path=summary_path, extension='pdf')
     fig = plot_df_heatmap(df_wilc_square,
-                          title='Wilcoxon rank sum test p-values',
+                          title='W-r-s-t p-v {}'.format(mmM),
                           cmap=plt.cm.Greys)
-    savefig_and_close(fig, 'wilcoxon_rank_sum_test_heatmap.{}'.format(
-        fig_extension), path=summary_path)
+    savefig_and_close(fig, 'wilc_r_s_test_{}.{}'.format(
+                      mmM, fig_extension), path=summary_path)
 
     ########################################################################
     # Boxplots by different groups
     ########################################################################
-    groups_by = ['tag', 'name', 'method']
+    groups_by = ['model', 'name', 'mixing_matrix_M']
     columns = ['loss_train', 'loss_val']
     for groupby in groups_by:
         for column in columns:
@@ -338,7 +386,7 @@ def main(results_path='results', summary_path='', filter_rows={},
 
             df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
             meds = df2.median()
-            meds.sort(ascending=False)
+            meds.sort_values(ascending=False, inplace=True)
             df2 = df2[meds.index]
 
             fig = plt.figure(figsize=(10, len(meds)/2+3))
@@ -352,12 +400,11 @@ def main(results_path='results', summary_path='', filter_rows={},
                                                      fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of models vs method or dataset
+    # Heatmap of models vs mixing_matrix_M or dataset
     ########################################################################
-    indices = ['method']
+    indices = ['mixing_matrix_M']
     columns = ['name']
     values = ['loss_val']
-    normalizations = [None] #, 'rows', 'cols']
     for value in values:
         for index in indices:
             for column in columns:
@@ -371,22 +418,21 @@ def main(results_path='results', summary_path='', filter_rows={},
 
 
     ########################################################################
-    # Heatmap of finished experiments name vs method
+    # Heatmap of finished experiments name vs mixing_matrix_M
     ########################################################################
-    df2 = pd.pivot_table(df, values='loss_val', index='name', columns='method',
+    df2 = pd.pivot_table(df, values='loss_val', index='name', columns='mixing_matrix_M',
                          aggfunc=len)
     df2 = df2.fillna(0).astype(int)
     fig = plot_df_heatmap(df2, title='Number of experiments',
                           cmap=plt.cm.Greys)
-    savefig_and_close(fig,
-                      'name_vs_method_heatmap_count.{}'.format(fig_extension),
-                      path=summary_path)
+    savefig_and_close(fig, 'name_vs_mixing_matrix_M_heatmap_count.{}'.format(
+                        fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of models vs method or dataset
+    # Heatmap of models vs mixing_matrix_M or dataset
     ########################################################################
-    indices = ['tag']
-    columns = ['method', 'name']
+    indices = ['model']
+    columns = ['mixing_matrix_M', 'name']
     values = ['loss_val']
     normalizations = [None] #, 'rows', 'cols']
     for value in values:
@@ -399,22 +445,33 @@ def main(results_path='results', summary_path='', filter_rows={},
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
                             index, column, value, fig_extension), path=summary_path)
                 for norm in normalizations:
+                    # Mean error rates
                     df2 = pd.pivot_table(df, values=value, index=index,
                                          columns=column,
                                          aggfunc=np.mean)
-                    title = 'Mean ER (a={}, b={}, {})'.format(
+                    title = r'Mean ER ($\alpha={}$, $\beta={}$)'.format(
                             alpha, beta, norm)
                     fig = plot_df_heatmap(df2, normalize=norm, title=title)
                     savefig_and_close(fig, '{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension), path=summary_path)
 
+                    # Median error rates
+                    df2 = pd.pivot_table(df, values=value, index=index,
+                                         columns=column,
+                                         aggfunc=np.median)
+                    title = r'Median ER ($\alpha={}$, $\beta={}$)'.format(
+                            alpha, beta, norm)
+                    fig = plot_df_heatmap(df2, normalize=norm, title=title)
+                    savefig_and_close(fig, '{}_vs_{}_{}_median_heatmap_{}.{}'.format(
+                                index, column, value, norm, fig_extension), path=summary_path)
+
     ########################################################################
-    # Heatmap of models vs dataset for every method
+    # Heatmap of models vs dataset for every mixing_matrix_M
     ########################################################################
-    filter_by_column = 'method'
+    filter_by_column = 'mixing_matrix_M'
     filter_values = df[filter_by_column].unique()
     # TODO change columns and indices
-    indices = ['tag']
+    indices = ['model']
     columns = ['name', 'size', 'n_classes', 'n_features']
     values = ['loss_val']
     normalizations = [None] #, 'rows', 'cols']
@@ -427,10 +484,9 @@ def main(results_path='results', summary_path='', filter_rows={},
                                          index=index, columns=column)
                     if df2.columns.dtype in ['object', 'string']:
                         for norm in normalizations:
-                            fig = plot_df_heatmap(
-                                    df2, normalize=norm,
-                                    title='Heat-map by {} (normalized {})'.format(
-                                        filtered_row, norm))
+                            title = r'Heat-map by {} ($\alpha={}$, $\beta={}$)'.format(
+                                        filtered_row, alpha, beta)
+                            fig = plot_df_heatmap(df2, normalize=norm, title=title)
                             savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
                                         index, column, filtered_row, value, norm,
                                         fig_extension), path=summary_path)
@@ -459,10 +515,13 @@ def __test_1():
     main('results', summary_path='keras_lr', filter_rows={'tag':'Keras-LR'},
             filter_performance=0.7)
     main('results', summary_path='keras_mlp', filter_rows={'tag':'Keras-MLP'},
-            filter_performance=0.7)
+            filter_performance=1.0)
     main('results', summary_path='all', filter_rows={}, filter_performance=0.5)
     sys.exit(0)
 
+def __test_2():
+    main('../results_a7_b3', summary_path='test_1', filter_rows={'tag':'Keras-MLP'},
+         filter_performance=1.0)
 
 def parse_arguments():
     parser = ArgumentParser(description=("Generates a summary of all the " +
@@ -485,5 +544,4 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
-    # TODO implement filter arguments
     main(**vars(args))

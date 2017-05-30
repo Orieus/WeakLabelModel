@@ -56,11 +56,11 @@ def parse_arguments():
                       type=str, help=('List of datasets or toy examples to'
                                       'test separated by with no spaces.'))
     # Parameters for sklearn synthetic data
-    parser.add_option('-s', '--n-samples', dest='ns', default=2000,
+    parser.add_option('-s', '--n-samples', dest='ns', default=1000,
                       type=int, help='Number of samples if toy dataset.')
     parser.add_option('-f', '--n-features', dest='nf', default=2,
                       type=int, help='Number of features if toy dataset.')
-    parser.add_option('-c', '--n-classes', dest='n_classes', default=10,
+    parser.add_option('-c', '--n-classes', dest='n_classes', default=5,
                       type=int, help='Number of classes if toy dataset.')
     # Common parameters for all AL algorithms
     parser.add_option('-m', '--n-simulations', dest='n_sim', default=10,
@@ -140,7 +140,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     elif problem == 'blobs':
         X, y = skd.make_blobs(n_samples=ns, n_features=nf,
                               centers=n_classes, cluster_std=1.0,
-                              center_box=(-10.0, 10.0), shuffle=True,
+                              center_box=(-15.0, 15.0), shuffle=True,
                               random_state=seed)
     elif problem == 'gauss_quantiles':
         X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
@@ -210,7 +210,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     for v_method in v_methods:
         v[v_method] = wlw.computeVirtual(z, n_classes, method=v_method, M=M)
 
-    # Convert z to a list of binary lists (this is for the OSL alg)
+    # Convert z to a lrist of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
 
     if alpha == 1.0 and beta == 0.0:
@@ -262,8 +262,13 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
 
     # If dimension is 2, we draw a scatterplot
     if nf >= 2:
-        fig = plot_data(X, y, save=False)
-        diary.save_figure(fig)
+        fig = plot_data(X, y, save=False, title=problem)
+        diary.save_figure(fig, filename=problem)
+
+        if M.shape[0] == M.shape[1]:
+            fig = plot_data(X, n_classes-np.log(z)-1, save=False, title=problem)
+            diary.save_figure(fig, filename='{}_{}'.format(problem, method))
+
 
     ######################
     # ## Select classifier

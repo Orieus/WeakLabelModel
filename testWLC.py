@@ -86,14 +86,13 @@ X = StandardScaler().fit_transform(X)
 # Generate weak labels
 M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
                  method=method)
-z = wlw.generateWeak(y, M, n_classes)
+z = wlw.generateWeak(y, M)
 v = wlw.computeVirtual(z, n_classes, method=method)
 v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
 
-ipdb.set_trace()
-
 # Convert z to a list of binary lists (this is for the OSL alg)
-z_bin = wlw.computeVirtual(z, n_classes, method='IPL')
+# MPN: I think this needs to be changed to the new binarizeWeakLabels
+z_bin = wlw.binarizeWeakLabels(z, n_classes)
 
 # If dimension is 2, we draw a scatterplot
 if nf >= 2:
