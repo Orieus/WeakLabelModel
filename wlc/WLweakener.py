@@ -8,7 +8,7 @@ import sklearn.datasets as skd           # Needs version 0.14 or higher
 from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 import sys
-import ipdb
+# import ipdb
 
 
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
@@ -134,7 +134,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
             M[z, :] = z_bin*(beta**(modz-1) * (1-beta)**(c-modz))
 
-        # This is likely not required: columns in M should already sum up to 1
+        # Columns in M should sum up to 1
         M = M / np.sum(M, axis=0)
 
     else:
@@ -143,31 +143,49 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     return M
 
 
-def generateWeak(y, M):
+def generateWeak(y, M, dec_labels=None):
     """
-    Generate the set of weak labels z for n examples, given the ground truth
-    labels y for n examples, a mixing matrix M, and a number of classes c.
+    Generate the set of weak labels z from the ground truth labels y, given
+    a mixing matrix M and, optionally, a set of possible weak labels, zset.
 
     Args:
-        y   :List of true labels with values from 0 to c-1 where c is the
-            number of classes
-        M   :Mixing matrix of shape (c, c) or (2**c, c).
+        y       :List of true labels with values from 0 to c-1 where c is the
+                 number of classes
+        M       :Mixing matrix of shape (d, c) with d >= c.
+        dec_labels :A list of indices in {0, 1, ..., 2**c}: dec_labels[i] is an
+                 integer whose binary representation encodes the weak labels
+                 corresponding to the i-th row in M. The length of dec_labels
+                 must be equal to the number of rows in M.
+
+                 If dec_labels is None: the following is assumed:
+                   - If M is (2**c, c), dec_labels = [0, 1, ..., 2**c]
+                   - If M is (c, c),    dec_labels = [1, 2, 4,..., 2**(c-1)]
+                   - Otherwise, a error is raised.
+
     Returns:
         z   :List of weak labels. Each weak label is an integer whose binary
-            representation encodes the boserved weak labels.
+            representation encodes the observed weak labels.
     """
 
     z = np.zeros(y.shape, dtype=int)  # Weak labels for all labels y (int)
     d = M.shape[0]               # Number of weak labels
     c = M.shape[1]
-    assert(d == c or d == 2**c)
-    dec_labels = np.arange(d)    # Possible weak labels (int)
 
+    if dec_labels is None:
+        if d == 2**c:
+            dec_labels = np.arange(2**c)
+        elif d == c:
+            dec_labels = 2**np.arange(c-1, -1, -1)
+        else:
+            raise ValueError(
+                "A dec_labels parameter is required for the given M")
+
+    # dec_labels = np.arange(d)    # Possible weak labels (int)
     for index, i in enumerate(y):
         z[index] = np.random.choice(dec_labels, 1, p=M[:, i])
 
-    if c == d:
-        z = 2**(c-z-1)
+    # if c == d:
+    #     z = 2**(c-z-1)
 
     return z
 
@@ -193,11 +211,11 @@ def binarizeWeakLabels(z, c):
     return z_bin
 
 
-def computeVirtual(z, c, method='IPL', M=None):
+def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     """
-    Generate the set of virtual labels v for n examples, given the weak labels
-    for n examples in decimal format, a mixing matrix M, the number of classes
-    c, and a method.
+    Generate the set of virtual labels v for the (decimal) weak labels in z,
+    given a weak label model in variable method and, optionally, a mixing
+    matrix M, and a list of admissible decimal labels.
 
     Args:
         z       :List of weak labels. Each weak label is an integer whose
@@ -218,14 +236,32 @@ def computeVirtual(z, c, method='IPL', M=None):
                  - 'MCC'        :Computes virtual labels for a M-CC loss
                                  (Not available yet)
         M       :Mixing matrix. Only for methods 'Mproper' and 'MCC'
+        dec_labels :A list of indices in {0, 1, ..., 2**c}: dec_labels[i] is an
+                 integer whose binary representation encodes the weak labels
+                 corresponding to the i-th row in M. The length of dec_labels
+                 must be equal to the number of rows in M.
+
+                 If dec_labels is None: the following is assumed:
+                   - If M is (2**c, c), dec_labels = [0, 1, ..., 2**c]
+                   - If M is (c, c),    dec_labels = [1, 2, 4,..., 2**(c-1)]
+                   - Otherwise, a error is raised.
 
     Returns:
         v
     """
+
     if method in ['supervised', 'IPL']:
+
+        # The virtual labels are exactly equal to weak label vectors
         v = binarizeWeakLabels(z, c)
+
     elif method == 'quasi_IPL':    # quasi-independent labels
+
+        # The virtual labels are computed from the weak label vectors
         v = binarizeWeakLabels(z, c).astype(float)
+
+        # Each 1 or 0 in the weak label vector must be replaced by a number
+        # that depends on the total number of 1's in the vector
         for index in range(len(v)):
             aux = v[index, :]
             weak_sum = np.sum(aux)
@@ -234,23 +270,48 @@ def computeVirtual(z, c, method='IPL', M=None):
                 aux[aux == 0] = weak_zero
                 v[index, :] = aux
             else:
+                # In the quasi_IPL method, it is assumed that nor z=0 nor
+                # z=2**C will happen. A zero vector is assigned here, just in
+                # case, though the choice is arbitrary.
                 # TODO MPN I changed Nans to zeros. Is this important?
                 # v[index, :] = np.array([None] * c)
                 v[index, :] = np.zeros(c)
+
     elif method == 'Mproper':
-        v = np.zeros((z.size, c))
+
+        # Compute array of all possible weak label vectors (in decimal format)
+        # in the appropriate order, if not given.
+        if dec_labels is None:
+            if M.shape[0] == 2**c:
+                # All possible weak labels have a row in M
+                dec_labels = np.arange(2**c)
+            elif M.shape[0] == c:
+                # Single-class label vectors are assumed
+                dec_labels = 2**np.arange(c-1, -1, -1)
+            else:
+                raise ValueError("Weak labels for the given M are unknown")
+
+        # Compute inverted index from decimal labels to position in dec_labels
+        z2i = dict(zip(dec_labels, range(len(dec_labels))))
+
         # Compute the virtual label matrix
         Y = np.linalg.pinv(M)
+
+        # THIS IS NO LONGER REQUIRD
         # If mixing matrix is square, weak labels need to be transformed from
         # 2**c to c optional values
-	if M.shape[0] == M.shape[1]:
-            z = c-np.log2(z)-1
+        # if M.shape[0] == M.shape[1]:
+        #     z = c-np.log2(z)-1
+
         # Compute the virtual label.
-        for index, i in enumerate(z):
-            # The virtual label for weak label i is the i-th row in Y
-            v[index, :] = Y[:, int(i)]
+        v = np.zeros((z.size, c))
+        for i, zi in enumerate(z):
+            # The virtual label for the i-th weak label, zi, is the column
+            # in Y corresponding to zi (that is taken from the inverted index)
+            v[i, :] = Y[:, z2i[zi]]
     else:
-        raise ValueError("Unknown method to create virtual labels: {}".format(method))
+        raise ValueError(
+            "Unknown method to create virtual labels: {}".format(method))
 
     return v
 
