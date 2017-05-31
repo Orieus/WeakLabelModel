@@ -158,17 +158,20 @@ class WeakLogisticRegression(object):
 
     def logLoss(self, w, X, T):
         """
-        Compute a regularized log loss (cross-entropy) for samples in X
-        virtual labels in T and parameters w. The regularization parameter is
-        taken from the object attributes.
+        Compute a (possibly regularized) log loss (cross-entropy) for samples
+        in X, virtual labels in T and parameters w. The regularization
+        parameter is taken from attribute self.params['alpha']
         It assumes a multi-class softmax classifier.
-        This method implements two different log-losses, that are specified in
+        This method implements different log-losses, that are specified in
         the object's attribute self.method:
             'OSL' :Optimistic Superset Loss. It assumes that the true label is
                    the nonzero weak label with highest posterior probability
                    given the model.
             'VLL' :Virtual Labels Loss.
-        The regularization parameter is set in set.params['alpha']
+            'EM'  :Expected Log likelihood (i.e. the expected value of the
+                   complete data log-likelihood after the E-step). It assumes
+                   that a mixing matrix is known and contained in
+                   self.params['M']
 
         Args:
             :w:  1-D nympy array. A flattened version of the weight matrix of
@@ -180,6 +183,7 @@ class WeakLogisticRegression(object):
                  on the selected log-loss version:
                  - 'OSL': t is a binary vector.
                  - 'VLL': t is a virtual label vector
+                 - 'EM': t is an integer index of a weak label
         Returns:
             :L:  Log-loss
         """
@@ -192,6 +196,13 @@ class WeakLogisticRegression(object):
             p = np.exp(logp)
             D = self.hardmax(T*p)
             L = -np.sum(D*logp)
+
+        elif self.method == 'EM':
+            M = self.params['M']
+            p = np.exp(logp)
+            Q = p * M[T, :].T
+            Q = Q / np.sum(Q, axis=0)
+            L = -np.sum(Q*logp)
 
         else:
             # Bias: This term is usually zero for proper losses, but may be
@@ -270,7 +281,8 @@ class WeakLogisticRegression(object):
         """
         Compute the gradient of the regularized log loss (cross-entropy) for
         samples in X, virtual labels in T and parameters w.
-        The regularization parameter is taken from the object attributes.
+        The regularization parameter is taken from the object attribute
+        self.params['alpha']
         It assumes a multi-class softmax classifier.
         This method implements gradients for two different log-losses, that are
         specified in the object's attribute self.method:
@@ -278,7 +290,10 @@ class WeakLogisticRegression(object):
                    the nonzero weak label with highest posterior probability
                    given the model.
             'VLL' :Virtual Labels Loss.
-        The regularization parameter is set in set.params['alpha']
+            'EM'  :Expected Log likelihood (i.e. the expected value of the
+                   complete data log-likelihood after the E-step). It assumes
+                   that a mixing matrix is known and contained in
+                   self.params['M']
 
         Args:
             :w:  1-D nympy array. A flattened version of the weight matrix of
@@ -290,6 +305,7 @@ class WeakLogisticRegression(object):
                      the selected log-loss version:
                      - 'OSL': t is a binary vector.
                      - 'VLL': t is a virtual label vector
+                     - 'EM': t is an integer index of a weak label
             Returns:
                 :G:  Gradient of the Log-loss
         """
@@ -301,6 +317,12 @@ class WeakLogisticRegression(object):
         if self.method == 'OSL':
             D = self.hardmax(T*p)
             G = np.dot(X.T, p - D)
+
+        elif self.method == 'EM':
+            M = self.params['M']
+            Q = p * M[T, :].T
+            Q = Q / np.sum(Q, axis=0)
+            G = np.dot(X.T, p - Q)
 
         else:
             bias = np.sum(T, axis=1, keepdims=True)
