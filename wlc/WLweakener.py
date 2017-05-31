@@ -53,8 +53,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'noisy':
 
-        M = (np.eye(c) * (1-beta-beta/(c-1)) +
-             np.ones((c, c)) * beta/(c-1))
+        M = (np.eye(c) * (alpha - (1-alpha)/(c-1))
+             + np.ones((c, c)) * (1-alpha)/(c-1))
 
     elif method == 'random_noise':
 
@@ -251,10 +251,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     """
 
     if method in ['supervised', 'IPL']:
-
-        # The virtual labels are exactly equal to weak label vectors
-        v = binarizeWeakLabels(z, c)
-
+        v = binarizeWeakLabels(z, c).astype(float)
     elif method == 'quasi_IPL':    # quasi-independent labels
 
         # The virtual labels are computed from the weak label vectors
@@ -274,11 +271,9 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 # z=2**C will happen. A zero vector is assigned here, just in
                 # case, though the choice is arbitrary.
                 # TODO MPN I changed Nans to zeros. Is this important?
-                # v[index, :] = np.array([None] * c)
-                v[index, :] = np.zeros(c)
+                v[index, :] = np.array([None] * c)
 
     elif method == 'Mproper':
-
         # Compute array of all possible weak label vectors (in decimal format)
         # in the appropriate order, if not given.
         if dec_labels is None:

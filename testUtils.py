@@ -13,7 +13,7 @@ import matplotlib.cm as cm
 
 
 def newfig(name):
-    fig = plt.figure(name)
+    fig = plt.figure(name, figsize=(3,3))
     fig.clf()
     return fig
 
@@ -30,14 +30,16 @@ def savefig(fig, path='figures', prefix='weak_labels_', extension='svg'):
     fig.savefig(os.path.join(path, filename))
 
 
-def plot_data(x, y, loc='best', save=True):
+def plot_data(x, y, loc='best', save=True, title='data'):
     fig = newfig('data')
     ax = fig.add_subplot(111)
-    ax.scatter(x[:, 0], x[:, 1], c=y, s=50, edgecolors='black', cmap='Paired',
-               alpha=.8)
+    ax.scatter(x[:, 0], x[:, 1], c=y, s=30, edgecolors=None, cmap='Paired',
+               alpha=.8, lw=0.1)
     ax.set_xlabel('$x_0$')
     ax.set_ylabel('$x_1$')
-    ax.set_title('Labeled dataset')
+    ax.set_title(title)
+    ax.set_xticks([-3,-2,-1,0,1,2,3])
+    ax.set_yticks([-3,-2,-1,0,1,2,3])
     ax.axis('equal')
     ax.grid(True)
     ax.legend(loc=loc)
@@ -143,9 +145,9 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     X : array-like, with shape (n_samples, n_dim)
         The data to fit.
 
-    y : array-like, with shape (n_samples, n_classes)
-        The target variable. This array is used for the evaluation of the
-        model.
+    y : array-like, with shape (n_samples, )
+        The target variable of integers. This array is used for the evaluation
+        of the model.
 
     v : array-like, optional, with shape (n_samples, n_classes), default: 'y'
         The virtual target variable. This array is used for the training of the
@@ -205,5 +207,10 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
                                       (time.clock() - start)/(i+1)*(n_sim-i)),
         sys.stdout.flush()
 
+    DEBUG = True
+    if DEBUG:
+        print("y[:5] = {}".format(y_shuff[:5]))
+        print("q[:5] = {}".format(preds[:5]))
+        print("v[:5] = \n{}".format(v_shuff[:5]))
     print ''
     return Pe_tr, Pe_cv
