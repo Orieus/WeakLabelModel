@@ -71,7 +71,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
         # Supervised component: Identity matrix with size d x c.
         Ic = np.zeros((d, c))
-        for i in xrange(c):
+        for i in range(c):
             Ic[2**(c-i-1), i] = 1
 
         # Weak component: Random weak label proabilities
@@ -287,7 +287,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 raise ValueError("Weak labels for the given M are unknown")
 
         # Compute inverted index from decimal labels to position in dec_labels
-        z2i = dict(zip(dec_labels, range(len(dec_labels))))
+        z2i = dict(list(zip(dec_labels, list(range(len(dec_labels))))))
 
         # Compute the virtual label matrix
         Y = np.linalg.pinv(M)
@@ -328,9 +328,9 @@ def main():
     #####################
     # ## A title to start
 
-    print "======================="
-    print "    Weak labels"
-    print "======================="
+    print("=======================")
+    print("    Weak labels")
+    print("=======================")
 
     ###########################################################################
     # ## PART I: Load data (samples and true labels)                         ##
@@ -346,9 +346,9 @@ def main():
     z = generateWeak(y, M, c)
     v = computeVirtual(z, c, method='quasi_IPL')
 
-    print M
-    print z
-    print v
+    print(M)
+    print(z)
+    print(v)
 
     ipdb.set_trace()
 

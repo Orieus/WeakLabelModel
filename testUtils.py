@@ -5,7 +5,7 @@ import time
 import errno
 
 import numpy as np
-import sklearn.cross_validation as skcv
+import sklearn.model_selection as skcv
 from sklearn.utils import shuffle
 import matplotlib
 import matplotlib.pyplot as plt
@@ -119,7 +119,7 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim, loc='best',
 
     ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
                  n_classes, n_sim))
-    ax.set_xticks(range(1, 1 + len(tag_list)))
+    ax.set_xticks(list(range(1, 1 + len(tag_list))))
     ax.set_xticklabels(tag_list, rotation=45, ha='right')
     ax.set_ylim([-0.01, 1.01])
     ax.legend(['training', 'validation'], loc=loc)
@@ -178,7 +178,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     ns = X.shape[0]
     start = time.clock()
     # ## Loop over simulation runs
-    for i in xrange(n_sim):
+    for i in range(n_sim):
         # ##############
         # Self evaluation.
         # First, we compute leave-one-out predictions
@@ -202,15 +202,15 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         d = np.argmax(f, axis=1)
         Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
 
-        print ('\tAveraging {0} simulations. Estimated time to finish '
+        print(('\tAveraging {0} simulations. Estimated time to finish '
                '{1:0.4f}s.\r').format(n_sim,
-                                      (time.clock() - start)/(i+1)*(n_sim-i)),
+                                      (time.clock() - start)/(i+1)*(n_sim-i)), end=' ')
         sys.stdout.flush()
 
     DEBUG = True
     if DEBUG:
-        print("y[:5] = {}".format(y_shuff[:5]))
-        print("q[:5] = {}".format(preds[:5]))
-        print("v[:5] = \n{}".format(v_shuff[:5]))
-    print ''
+        print(("y[:5] = {}".format(y_shuff[:5])))
+        print(("q[:5] = {}".format(preds[:5])))
+        print(("v[:5] = \n{}".format(v_shuff[:5])))
+    print('')
     return Pe_tr, Pe_cv

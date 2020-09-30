@@ -26,10 +26,10 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
     Pe_tr = [0] * n_sim
     Pe_cv = [0] * n_sim
 
-    print '    Averaging {0} simulations. Estimated time...'.format(n_sim),
+    print('    Averaging {0} simulations. Estimated time...'.format(n_sim), end=' ')
 
     # ## Loop over simulation runs
-    for i in xrange(n_sim):
+    for i in range(n_sim):
 
         if i == 0:
             start = time.clock()
@@ -54,6 +54,6 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1):
         Pe_cv[i] = float(np.count_nonzero(y != preds)) / ns
 
         if i == 0:
-            print '{0} segundos'.format((time.clock() - start) * n_sim)
+            print('{0} segundos'.format((time.clock() - start) * n_sim))
 
     return Pe_tr, Pe_cv

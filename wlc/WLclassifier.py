@@ -26,7 +26,7 @@ class WeakLogisticRegression(object):
         self.method = method
         self.optimizer = optimizer
         self.n_classes = n_classes
-        self.classes_ = range(n_classes)
+        self.classes_ = list(range(n_classes))
 
         # Set default value of parameter 'alpha' if it does not exist
         if self.method == "VLL" and 'alpha' not in self.params:

@@ -19,6 +19,11 @@ echo `cat $PBS_NODEFILE | uniq`
 # count the number of processors available:
 numprocs=`wc $PBS_NODEFILE | awk '{print $1}'`
 
+# Load Anaconda3 5.2.0
+module load languages/python-anaconda3-5.2.0
+# Load virtual environment
+source ./venv/bin/activate
+
 mkdir -p 'results'
 
 datasets=gauss_quantiles

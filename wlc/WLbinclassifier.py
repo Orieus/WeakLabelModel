@@ -22,7 +22,7 @@ class WeakLogisticRegression(object):
         self.rho = rho
         self.n_it = n_it
         self.n_classes = n_classes
-        self.classes_ = range(n_classes)
+        self.classes_ = list(range(n_classes))
 
     def logistic(self, x):
         """

@@ -17,8 +17,8 @@ import openml
 from optparse import OptionParser
 import sklearn.datasets as skd
 # import sklearn.linear_model as sklm
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import Imputer
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
 from sklearn.utils import shuffle
@@ -110,9 +110,9 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     #####################
     # ## A title to start
 
-    print "======================================"
-    print "    Testing Learning from Weak Labels "
-    print "======================================"
+    print("======================================")
+    print("    Testing Learning from Weak Labels ")
+    print("======================================")
 
     #######################################################################
     # ## PART I: Load data (samples and true labels)                     ##
@@ -123,19 +123,23 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     #     n_repeated=0, n_classes=n_classes, n_clusters_per_class=2,
     #     weights=None, flip_y=0.0001, class_sep=1.0, hypercube=True,
     #     shift=0.0, scale=1.0, shuffle=True, random_state=None)
-    if problem in openml_ids.keys():
+    if problem in list(openml_ids.keys()):
         dataset_id = openml_ids[problem]
         dataset = openml.datasets.get_dataset(dataset_id)
-        X, y, categorical = dataset.get_data(
+        X, y, categorical, feature_names = dataset.get_data(
                                 target=dataset.default_target_attribute,
-                                return_categorical_indicator=True)
+                                )
         # TODO change NaN in categories for another category
-        enc = OneHotEncoder(categorical_features=categorical, sparse=False)
+        # FIXME OneHotEncoder has changed and does not accept a list of
+        # features that need to be encoded. It now applies to all of them.
+        enc = OneHotEncoder(sparse=False)
         X = enc.fit_transform(X)  # Categorical to binary
         ns = X.shape[0]           # Sample size
         nf = X.shape[1]             # Data dimension
         # Assegurar que los valores en Y son correctos para todos los
         # resultados
+        le = LabelEncoder()
+        y = le.fit_transform(y)
         n_classes = y.max()+1      # Number of classes
     elif problem == 'blobs':
         X, y = skd.make_blobs(n_samples=ns, n_features=nf,
@@ -150,22 +154,23 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
         X, y = skd.load_digits(n_class=n_classes, return_X_y=True)
         nf = X.shape[0]             # Data dimension
     else:
-        raise("Problem type unknown: {}".format(problem))
-    X = Imputer(missing_values='NaN', strategy='mean').fit_transform(X)
+        raise "Problem type unknown: {}"
+    si = SimpleImputer(missing_values='NaN', strategy='mean')
+    X = si.fit_transform(X)
     X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
 
     X, y = shuffle(X, y, random_state=seed)
 
     # Convert y into a binary matrix
-    y_bin = label_binarize(y, range(n_classes))
+    y_bin = label_binarize(y, list(range(n_classes)))
 
     # ## Report data used in the simulation
-    print '----------------'
-    print 'Simulation data:'
-    print '    Dataset name: {0}'.format(problem)
-    print '    Sample size: {0}'.format(ns)
-    print '    Number of features: {0}'.format(nf)
-    print '    Number of classes: {0}'.format(n_classes)
+    print('----------------')
+    print('Simulation data:')
+    print('    Dataset name: {0}'.format(problem))
+    print('    Sample size: {0}'.format(ns))
+    print('    Number of features: {0}'.format(nf))
+    print('    Number of classes: {0}'.format(n_classes))
 
     diary.add_entry('dataset', ['name', problem, 'size', ns,
                                 'n_features', nf, 'n_classes', n_classes,
@@ -277,8 +282,8 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     # ## PART II: AL algorithm analysis                                ###
     ######################################################################
 
-    print '----------------------------'
-    print 'Weak Label Analysis'
+    print('----------------------------')
+    print('Weak Label Analysis')
 
     wLR = {}
     title = {}
@@ -544,7 +549,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     # Evaluation and plot of each model
     appended_dfs = []
     for i, tag in enumerate(tag_list):
-        print tag
+        print(tag)
         t_start = time.clock()
         Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
@@ -571,9 +576,9 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
         Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
         Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
 
-        print title[tag]
-        print '* Average train error = {0}'.format(Pe_tr_mean[tag])
-        print '* Average cv error = {0}'.format(Pe_cv_mean[tag])
+        print(title[tag])
+        print('* Average train error = {0}'.format(Pe_tr_mean[tag]))
+        print('* Average cv error = {0}'.format(Pe_cv_mean[tag]))
 
     # Plot decision boundaries.
     # Plotting decision regions
@@ -596,8 +601,8 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     #     axarr[idx[0], idx[1]].scatter(X[:, 0], X[:, 1], c=y, alpha=0.8)
     #     axarr[idx[0], idx[1]].set_title(tt)
 
-    print '================'
-    print 'Fin de ejecucion'
+    print('================')
+    print('Fin de ejecucion')
 
 ###############################################################################
 # ## MAIN #####################################################################
