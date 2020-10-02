@@ -130,10 +130,12 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
                                 target=dataset.default_target_attribute,
                                 )
         # TODO change NaN in categories for another category
-        # FIXME OneHotEncoder has changed and does not accept a list of
-        # features that need to be encoded. It now applies to all of them.
-        enc = OneHotEncoder(sparse=False)
-        X = enc.fit_transform(X)  # Categorical to binary
+        from sklearn.compose import ColumnTransformer
+        categorical_indices = np.where(categorical)[0]
+        ct = ColumnTransformer([("Name_Of_Your_Step",
+                                 OneHotEncoder(),categorical_indices)],
+                               remainder="passthrough") 
+        X = ct.fit_transform(X)  # Categorical to binary
         ns = X.shape[0]           # Sample size
         nf = X.shape[1]             # Data dimension
         # Assegurar que los valores en Y son correctos para todos los
@@ -155,7 +157,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
         nf = X.shape[0]             # Data dimension
     else:
         raise "Problem type unknown: {}"
-    si = SimpleImputer(missing_values='NaN', strategy='mean')
+    si = SimpleImputer(missing_values=np.nan, strategy='mean')
     X = si.fit_transform(X)
     X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
 
@@ -329,7 +331,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
                                               output_size=n_classes,
                                               optimizer='SGD',
                                               params=params_keras)
-    n_jobs[tag] = -1
+    n_jobs[tag] = 1
     v_dict[tag] = y_bin.astype(float)
     tag_list.append(tag)
 
@@ -378,7 +380,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
                                               output_size=n_classes,
                                               optimizer='SGD',
                                               params=params_keras)
-    n_jobs[tag] = -1
+    n_jobs[tag] = 1
     v_dict[tag] = z_bin
     tag_list.append(tag)
 
@@ -418,19 +420,20 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
 ##        v_dict[tag] = z_bin
 ##        tag_list.append(tag)
 
-    # ############################################
-    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-    tag = 'Keras-LR-OSL-SGD'
-    title[tag] = 'Keras OSL loss with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                              output_size=n_classes,
-                                              optimizer='SGD',
-                                              OSL=True,
-                                              params=params_keras)
-    n_jobs[tag] = -1
-    v_dict[tag] = z_bin
-    tag_list.append(tag)
-
+## TODO: ADD OSL TO THE EXPERIMENTS
+#    # ############################################
+#    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
+#    tag = 'Keras-LR-OSL-SGD'
+#    title[tag] = 'Keras OSL loss with Stochastic Gradient Descent'
+#    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
+#                                              output_size=n_classes,
+#                                              optimizer='SGD',
+#                                              OSL=True,
+#                                              params=params_keras)
+#    n_jobs[tag] = 1
+#    v_dict[tag] = z_bin
+#    tag_list.append(tag)
+#
 #    # ############################################
 #    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
 #    tag = 'Keras-MLP-OSL-SGD'
@@ -477,7 +480,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
                                               output_size=n_classes,
                                               optimizer='SGD',
                                               params=params_keras)
-    n_jobs[tag] = -1
+    n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
@@ -529,7 +532,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
                                               output_size=n_classes,
                                               optimizer='SGD',
                                               params=params_keras)
-    n_jobs[tag] = -1
+    n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
@@ -608,7 +611,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
 # ## MAIN #####################################################################
 ###############################################################################
 def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
-        alpha, beta, gamma, path_results):
+         alpha, beta, gamma, path_results):
 
     problem_list = problems.split(',')
     method_list = method.split(',')
@@ -616,7 +619,7 @@ def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
     for problem in problem_list:
         for method in method_list:
             run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it,
-                    method, method2, alpha, beta, gamma, path_results)
+                           method, method2, alpha, beta, gamma, path_results)
 
 if __name__ == '__main__':
     (options, args) = parse_arguments()

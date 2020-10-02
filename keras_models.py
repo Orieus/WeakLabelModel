@@ -10,13 +10,23 @@ import scipy as sp
 
 import theano
 import theano.tensor as T
+from keras import backend as K
+
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation, Dropout
 from keras.optimizers import SGD, Adam, Nadam
 from functools import partial
 
+from sklearn.base import BaseEstimator
+
 theano.config.exception_verbosity = 'high'
+
+
+def log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    out = -y_true*K.log(y_pred)
+    return K.mean(out, axis=-1)
 
 
 def w_brier_loss(y_true, y_pred, class_weights):
@@ -37,12 +47,20 @@ def w_brier_loss(y_true, y_pred, class_weights):
 
 def osl_w_brier_loss(o, f, class_weights):
     """f is the forecast and o is the original outcome"""
-    d = T.argmax(T.mul(o, f), axis=-1, keepdims=True)
-    return T.mean(T.dot(T.square(T.sub(f, d)), class_weights), axis=-1)
+    # FIXME argmax does not have keep_dims anymore, find how to make a binary
+    # matrix with a one in the highest value of the original matrix
+    d = K.argmax(o * f, axis=-1, keep_dims=True)
+    return K.mean(K.dot(K.square(f - d), class_weights), axis=-1)
+
+
+def osl_brier_loss(o, f):
+    """f is the forecast and o is the original outcome"""
+    d = K.argmax(o * f, axis=-1, keep_dims=True)
+    return brier_loss(d, f)
 
 
 def brier_loss(y_true, y_pred):
-    """ Computes brier score for the given tensors
+    """ Computes weighted brier score for the given tensors
 
     equivalent to:
             w = class_weigths
@@ -50,14 +68,14 @@ def brier_loss(y_true, y_pred):
             bs = 0
             for n in range(N):
                 for c in range(C):
-                    bs += w[c]*(y_pred[n, c] - y_true[n, c])**2
+                    bs += (y_pred[n, c] - y_true[n, c])**2
             return bs/N
     """
-    return T.mean(T.square(T.sub(y_pred, y_true)), axis=-1)
+    return K.mean(K.sum(K.square(y_pred - K.cast(y_true, 'float32')), axis=1))
 
 
 # FIXME add the parameter rho to the gradient descent
-class KerasModel(object):
+class KerasModel(BaseEstimator):
     def __init__(self, input_size, output_size, optimizer='SGD',
                  batch_size=None, class_weights=None, OSL=False, params={},
                  random_seed=None):
@@ -83,18 +101,19 @@ class KerasModel(object):
             self.class_weights = class_weights
 
         if OSL is True:
-            # TODO try to use the osl loss
-            # loss = partial(osl_w_brier_loss, class_weights=self.class_weights)
-            # loss.__name__ = 'osl_w_brier_loss'
-            loss = partial(w_brier_loss, class_weights=self.class_weights)
-            loss.__name__ = 'w_brier_loss'
-        # #TODO test if the brier loss is correct
-        # elif class_weights is None:
-        #     loss = brier_loss
-        #     loss.__name__ = 'brier_loss'
+            if np.all(self.class_weights):
+                loss = osl_brier_loss
+                loss.__name__ = 'osl_brier_loss'
+            else:
+                loss = partial(osl_w_brier_loss, class_weights=self.class_weights)
+                loss.__name__ = 'osl_w_brier_loss'
         else:
-            loss = partial(w_brier_loss, class_weights=self.class_weights)
-            loss.__name__ = 'w_brier_loss'
+            if np.all(self.class_weights):
+                loss = brier_loss
+                loss.__name__ = 'brier_loss'
+            else:
+                loss = partial(w_brier_loss, class_weights=self.class_weights)
+                loss.__name__ = 'w_brier_loss'
 
         # FIXME adjust the parameter rho
         if 'rho' in self.params:
@@ -143,13 +162,13 @@ class KerasModel(object):
         return D
 
     def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
-            nb_epoch=1):
+            epochs=1):
         """
         The fit function requires both train_x and train_y.
         See 'The selected model' section above for explanation
         """
         if 'n_epoch' in self.params:
-            nb_epoch = self.params['n_epoch']
+            epochs = self.params['n_epoch']
 
         batch_size = self.batch_size if batch_size is None else batch_size
 
@@ -159,19 +178,19 @@ class KerasModel(object):
         # TODO try to use the OSL loss instead of iterating over epochs
         if self.OSL:
             history = []
-            for n in range(nb_epoch):
+            for n in range(epochs):
                 predictions = self.model.predict_proba(train_x,
                                                        batch_size=batch_size,
                                                        verbose=0)
                 train_osl_y = self.hardmax(np.multiply(train_y, predictions))
 
                 h = self.model.fit(train_x, train_osl_y, batch_size=batch_size,
-                                   nb_epoch=1, verbose=0)
+                                   epochs=1, verbose=0)
                 history.append(h)
             return history
 
         return self.model.fit(train_x, train_y, batch_size=batch_size,
-                              nb_epoch=nb_epoch, verbose=0)
+                              epochs=epochs, verbose=0)
 
     def predict(self, X, batch_size=None):
         # Compute posterior probability of class 1 for weights w.

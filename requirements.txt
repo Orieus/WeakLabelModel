@@ -6,3 +6,4 @@ ipdb
 keras
 tensorflow
 matplotlib
+theano
