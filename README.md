@@ -49,7 +49,7 @@ Usage: testWLCkeras.py [options]
 
 Options:
   -h, --help            show this help message and exit
-  -p PROBLEMS, --problems=PROBLEMS
+  -p DATASETS, --datasets=DATASETS
                         List of datasets or toy examples totest separated by
                         with no spaces.
   -s NS, --n-samples=NS
@@ -72,10 +72,9 @@ Options:
                         Gamma probability parameter
   -i N_IT, --n-iterations=N_IT
                         Number of iterations of Gradient Descent.
-  -e METHOD, --method=METHOD
-                        Method to generate the matrix M.One of the following:
-                        IPL, quasi_IPL, noisy, random_noise, random_weak
-  -t METHOD2, --method2=METHOD2
-                        Method to impute the matrix M.One of the following:
-                        Mproper
+  -e MIXING_MATRIX, --mixing-matrix=MIXING_MATRIX
+                        Method to generate the mixing matrix M.One of the
+                        following: IPL, quasi-IPL, noisy, random_noise,
+                        random_weak
+
 ```
