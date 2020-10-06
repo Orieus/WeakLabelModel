@@ -185,6 +185,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         n_folds = min(10, ns)
 
         X_shuff, v_shuff, y_shuff = shuffle(X, v, y, random_state=i)
+        # FIXME n_jobs can not be >1 because classif can not be serialized
         preds = skcv.cross_val_predict(classif, X_shuff, v_shuff, cv=n_folds,
                                        verbose=0, n_jobs=n_jobs)
 

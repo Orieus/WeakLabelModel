@@ -22,6 +22,24 @@ Run the unit tests running the following script from a terminal
 ./runtests.sh
 ```
 
+### Run Jupyter Notebooks
+
+In order to run any notebook in this repository, first create a new kernel that
+will be available from the Jupyter Notebook.
+
+```
+# Load the virtual environment
+source venv/bin/activate
+# Create a new kernel
+ipython kernel install --name "weaklabels" --user
+# Open Jupyter
+jupyter notebook
+```
+
+After opening or creating a notebook, you can select the "weaklabels" kernel in
+kernel -> Change kernel -> weaklabels
+
+
 ### Usage
 
 Current usage (may need updating)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" This code evaluates logistig regression with weak labels
+""" This code evaluates logistic regression with weak labels
 
     Author: JCS, June, 2016
-            MPN, April, 2017
+            MPN, April, 2017 (Updated October, 2020)
 """
 
 # External modules
@@ -22,6 +22,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import label_binarize
 from sklearn.utils import shuffle
+from sklearn.compose import ColumnTransformer
 
 # My modules
 import wlc.WLclassifier as wlc
@@ -52,7 +53,7 @@ openml_ids_nans = {'heart-c': 49, 'dermatology': 35}
 
 def parse_arguments():
     parser = OptionParser()
-    parser.add_option('-p', '--problems', dest='problems', default='blobs',
+    parser.add_option('-p', '--datasets', dest='datasets', default='blobs',
                       type=str, help=('List of datasets or toy examples to'
                                       'test separated by with no spaces.'))
     # Parameters for sklearn synthetic data
@@ -88,17 +89,69 @@ def parse_arguments():
     parser.add_option('-i', '--n-iterations', dest='n_it', default=10,
                       type=int, help=('Number of iterations of '
                                       'Gradient Descent.'))
-    parser.add_option('-e', '--method', dest='method', default='quasi_IPL',
-                      type=str, help=('Method to generate the matrix M.'
-                                      'One of the following: IPL, quasi_IPL, '
+    parser.add_option('-e', '--mixing-matrix', default='quasi-IPL',
+                      type=str, help=('Method to generate the mixing matrix M.'
+                                      'One of the following: IPL, quasi-IPL, '
                                       'noisy, random_noise, random_weak'))
-    parser.add_option('-t', '--method2', dest='method2', default='Mproper',
-                      type=str, help=('Method to impute the matrix M.'
-                                      'One of the following: Mproper'))
     return parser.parse_args()
 
-def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
-                   method2, alpha, beta, gamma, path_results):
+
+def load_dataset(dataset, n_samples=1000, n_features=10, n_classes=2,
+                 seed=None):
+    if dataset in list(openml_ids.keys()):
+        dataset_id = openml_ids[dataset]
+        data = openml.datasets.get_dataset(dataset_id)
+        X, y, categorical, feature_names = data.get_data(
+                                target=data.default_target_attribute,
+                                )
+        # TODO change NaN in categories for another category
+        categorical_indices = np.where(categorical)[0]
+        ct = ColumnTransformer([("Name_Of_Your_Step",
+                                 OneHotEncoder(),categorical_indices)],
+                               remainder="passthrough") 
+        X = ct.fit_transform(X)  # Categorical to binary
+        n_samples = X.shape[0]           # Sample size
+        n_features = X.shape[1]             # Data dimension
+        # Assegurar que los valores en Y son correctos para todos los
+        # resultados
+        le = LabelEncoder()
+        y = le.fit_transform(y)
+        n_classes = y.max()+1      # Number of classes
+    elif dataset == 'blobs':
+        X, y = skd.make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=n_classes, cluster_std=1.0,
+                              center_box=(-15.0, 15.0), shuffle=True,
+                              random_state=seed)
+    elif dataset == 'gauss_quantiles':
+        X, y = skd.make_gaussian_quantiles(n_samples=n_samples,
+                                           n_features=n_features,
+                                           n_classes=n_classes,
+                                           shuffle=True, random_state=seed)
+    elif dataset == 'digits':
+        X, y = skd.load_digits(n_class=n_classes, return_X_y=True)
+        n_features = X.shape[0]             # Data dimension
+    else:
+        raise "Problem type unknown: {}"
+    si = SimpleImputer(missing_values=np.nan, strategy='mean')
+    X = si.fit_transform(X)
+    X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
+
+    X, y = shuffle(X, y, random_state=seed)
+
+    # ## Report data used in the simulation
+    print('----------------')
+    print('Dataset description:')
+    print('    Dataset name: {0}'.format(dataset))
+    print('    Sample size: {0}'.format(n_samples))
+    print('    Number of features: {0}'.format(n_features))
+    print('    Number of classes: {0}'.format(n_classes))
+
+    return X, y, n_classes, n_samples, n_features
+
+
+def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
+                   mixing_matrix,
+                   alpha, beta, gamma, path_results):
     np.random.seed(seed)
     ############################
     # ## Create a Diary for all the logs and results
@@ -117,114 +170,40 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     #######################################################################
     # ## PART I: Load data (samples and true labels)                     ##
     #######################################################################
-
-    # X, y = skd.make_classification(
-    #     n_samples=ns, n_features=nf, n_informative=3, n_redundant=0,
-    #     n_repeated=0, n_classes=n_classes, n_clusters_per_class=2,
-    #     weights=None, flip_y=0.0001, class_sep=1.0, hypercube=True,
-    #     shift=0.0, scale=1.0, shuffle=True, random_state=None)
-    if problem in list(openml_ids.keys()):
-        dataset_id = openml_ids[problem]
-        dataset = openml.datasets.get_dataset(dataset_id)
-        X, y, categorical, feature_names = dataset.get_data(
-                                target=dataset.default_target_attribute,
-                                )
-        # TODO change NaN in categories for another category
-        from sklearn.compose import ColumnTransformer
-        categorical_indices = np.where(categorical)[0]
-        ct = ColumnTransformer([("Name_Of_Your_Step",
-                                 OneHotEncoder(),categorical_indices)],
-                               remainder="passthrough") 
-        X = ct.fit_transform(X)  # Categorical to binary
-        ns = X.shape[0]           # Sample size
-        nf = X.shape[1]             # Data dimension
-        # Assegurar que los valores en Y son correctos para todos los
-        # resultados
-        le = LabelEncoder()
-        y = le.fit_transform(y)
-        n_classes = y.max()+1      # Number of classes
-    elif problem == 'blobs':
-        X, y = skd.make_blobs(n_samples=ns, n_features=nf,
-                              centers=n_classes, cluster_std=1.0,
-                              center_box=(-15.0, 15.0), shuffle=True,
-                              random_state=seed)
-    elif problem == 'gauss_quantiles':
-        X, y = skd.make_gaussian_quantiles(n_samples=ns, n_features=nf,
-                                           n_classes=n_classes,
-                                           shuffle=True, random_state=seed)
-    elif problem == 'digits':
-        X, y = skd.load_digits(n_class=n_classes, return_X_y=True)
-        nf = X.shape[0]             # Data dimension
-    else:
-        raise "Problem type unknown: {}"
-    si = SimpleImputer(missing_values=np.nan, strategy='mean')
-    X = si.fit_transform(X)
-    X = StandardScaler(with_mean=True, with_std=True).fit_transform(X)
-
-    X, y = shuffle(X, y, random_state=seed)
+    X, y, n_classes, n_samples, n_features = load_dataset(dataset,
+                                                          n_samples=ns,
+                                                          n_features=nf,
+                                                          n_classes=n_classes,
+                                                          seed=seed)
+    diary.add_entry('dataset', ['name', dataset, 'size', n_samples,
+                                'n_features', n_features, 'n_classes',
+                                n_classes, 'mixing_matrix', mixing_matrix, 'alpha', alpha, 'beta', beta, 'gamma',
+                                gamma])
 
     # Convert y into a binary matrix
     y_bin = label_binarize(y, list(range(n_classes)))
 
-    # ## Report data used in the simulation
-    print('----------------')
-    print('Simulation data:')
-    print('    Dataset name: {0}'.format(problem))
-    print('    Sample size: {0}'.format(ns))
-    print('    Number of features: {0}'.format(nf))
-    print('    Number of classes: {0}'.format(n_classes))
-
-    diary.add_entry('dataset', ['name', problem, 'size', ns,
-                                'n_features', nf, 'n_classes', n_classes,
-                                'method', method, 'method2', method2,
-                                'alpha', alpha, 'beta', beta, 'gamma',
-                                gamma])
-
     # Generate weak labels
-    #     Available options are:
-    #        'supervised':   Identity matrix. For a fully labeled case.
-    #        'noisy':        For a noisy label case: the true label is
-    #                        observed with probabiltity 1 - beta, otherwise
-    #                        one noisy label is taken at random.
-    #        'random_noise': All values of the mixing matrix are taken at
-    #                        random from a uniform distribution. The matrix
-    #                        is normalized to be left-stochastic
-    #        'IPL':          Independent partial labels: the observed labels
-    #                        are independent. The true label is observed
-    #                        with probability alfa. Each False label is
-    #                        observed with probability beta.
-    #        'IPL3':         It is a generalized version of IPL, but only
-    #                        for c=3 classes and alpha=1: each false label
-    #                        is observed with a different probability.
-    #                        Parameters alpha, beta and gamma represent the
-    #                        probability of a false label for each column.
-    #        'quasi_IPL':    This is the quasi independent partial label
-    #                        case discussed in the paper.
     M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
-                     method=method)
+                     method=mixing_matrix)
     z = wlw.generateWeak(y, M)
     # Compute the virtual labels
-    #         Available methods are:
-    #         - 'IPL'  : Independet Partial Labels. Takes virtual label
-    #                    vectors equal to the binary representations of the
-    #                    the weak labels in z
-    #         - 'supervised': Equivalent to IPL
-    #         - 'Mproper'   : Computes virtual labels for a M-proper loss.
-    #         - 'MCC'       : Computes virtual labels for a M-CC loss
-    #                         (Not available yet)
-    v_methods = ['IPL', 'quasi_IPL', 'Mproper']
+    v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo', 'known-M-new',
+                 'known-M-new-conv']
     v = {}
     for v_method in v_methods:
         v[v_method] = wlw.computeVirtual(z, n_classes, method=v_method, M=M)
 
-    # Convert z to a lrist of binary lists (this is for the OSL alg)
+    # Convert z to a list of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
 
     if alpha == 1.0 and beta == 0.0:
         np.testing.assert_equal(y_bin, z_bin)
         np.testing.assert_equal(y_bin, v['IPL'])
-        np.testing.assert_equal(y_bin, v['quasi_IPL'])
-        np.testing.assert_equal(y_bin, v['Mproper'])
+        np.testing.assert_equal(y_bin, v['quasi-IPL'])
+        np.testing.assert_equal(y_bin, v['known-M-pseudo'])
+        np.testing.assert_equal(y_bin, v['known-M-new'])
+        np.testing.assert_equal(y_bin, v['known-M-new-conv'])
 
     #######################################
     # Explanation of the different labels
@@ -259,22 +238,22 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     ## n_classes = 3
     ## y = np.array([2,0,1])
     ## y_bin = label_binarize(y, range(n_classes))
-    ## M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=method)
+    ## M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=mixing_matrix)
     ## z = wlw.generateWeak(y, M, n_classes)
     ## # TODO if this is not to compute virtual it shouldn't be called the
     ## #  same function. It should be dec to bin or seomething like that
     ## z_bin = wlw.dec_to_bin(z, n_classes)
-    ## v = wlw.computeVirtual(z, n_classes, method=method)
-    ## v2 = wlw.computeVirtual(z, n_classes, method=method2, M=M)
+    ## v = wlw.computeVirtual(z, n_classes, method=mixing_matrix)
 
-    # If dimension is 2, we draw a scatterplot
+    # If dimension is >=2, we draw a scatterplot
     if nf >= 2:
-        fig = plot_data(X, y, save=False, title=problem)
-        diary.save_figure(fig, filename=problem)
+        fig = plot_data(X, y, save=False, title=dataset)
+        diary.save_figure(fig, filename=dataset)
 
         if M.shape[0] == M.shape[1]:
-            fig = plot_data(X, n_classes-np.log(z)-1, save=False, title=problem)
-            diary.save_figure(fig, filename='{}_{}'.format(problem, method))
+            fig = plot_data(X, n_classes-np.log(z)-1, save=False, title=dataset)
+            diary.save_figure(fig, filename='{}_{}'.format(dataset,
+                                                           mixing_matrix))
 
 
     ######################
@@ -283,270 +262,126 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     ######################################################################
     # ## PART II: AL algorithm analysis                                ###
     ######################################################################
-
     print('----------------------------')
     print('Weak Label Analysis')
 
-    wLR = {}
+    clf_dict = {}
     title = {}
     n_jobs = {}
     v_dict = {}
-    Pe_tr = {}
-    Pe_cv = {}
+    Pe_tr = {}  # training performance
+    Pe_cv = {}  # cross-validation performance
     Pe_tr_mean = {}
     Pe_cv_mean = {}
     params = {'rho': rho, 'n_it': n_it, 'loss': loss}
     params_keras = {'n_epoch': n_it, 'random_seed': 0}
     tag_list = []
 
-#    #######################################################################
-#    # BASELINES:
-#    # 1. Upper bound: Training with Original labels
-#    #
-#    # ###################
-#    # Supervised learning
-#    tag = 'Supervised'
-#    title[tag] = 'Learning from clean labels:'
-#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-#                                          optimizer='GD', params=params)
-#    n_jobs[tag] = -1
-#    v_dict[tag] = y
-#    tag_list.append(tag)
-#
-##        # ##########################
-##        # Supervised learning (BFGS)
-##        tag = 'Superv-BFGS'
-##        title[tag] = 'Learning from clean labels with BFGS:'
-##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-##                                              optimizer='BFGS', params=params)
-##        n_jobs[tag] = -1
-##        v_dict[tag] = y
-##        tag_list.append(tag)
-
+    #######################################################################
+    # BASELINES:
+    # 1. Upper bound: Training with Original labels
+    #
+    # ###################
+    # Supervised learning
+    classifier_dict = {'LR': km.KerasWeakLogisticRegression,
+                       'FNN': km.KerasWeakMultilayerPerceptron}
+    optimizer = 'SGD' # SGD or BFGS
+    classifier_name = 'LR' # LR or FNN
+    classifier =  classifier_dict[classifier_name]
     # ############################################
-    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-    tag = 'Keras-LR-Superv-SGD'
-    title[tag] = 'Keras LR trained with true labels with Stochastic Gradient Descent'
-    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                              output_size=n_classes,
-                                              optimizer='SGD',
-                                              params=params_keras)
+    # Supervised loss with Stochastic Gradient Descent
+    tag = '{}-Superv-{}'.format(classifier_name, optimizer)
+    title[tag] = '{} trained with true labels with {}'.format(classifier_name,
+                                                              optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
     n_jobs[tag] = 1
     v_dict[tag] = y_bin.astype(float)
     tag_list.append(tag)
 
-#    # ############################################
-#    # Miquel: MLP supervised with Stochastic Gradient Descent
-#    tag = 'Keras-MLP-Superv-SGD'
-#    title[tag] = 'Keras MLP Supervised loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-#                                                output_size=n_classes,
-#                                                optimizer='SGD',
-#                                                params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = y_bin
-#    tag_list.append(tag)
-#
-#    #######################################################################
-#    # BASELINES:
-#    # 2. Lower bound: Training with weak labels
-#    # 2.a : Also case where we assume IPL mixing matrix M
-#    #
-#    # ############################################
-#    # Virtual Label Learning with Gradient Descent
-#    tag = 'Weak-GD'
-#    title[tag] = 'CC-VLL with Gradient Descent'
-#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                          optimizer='GD', params=params)
-#    n_jobs[tag] = -1
-#    v_dict[tag] = z_bin
-#    tag_list.append(tag)
-#
-##        # ############################################
-##        # Virtual Label Learning with Gradient Descent
-##        tag = 'Weak-BFGS'
-##        title[tag] = 'CC-VLL with BFGS'
-##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-##                                              optimizer='BFGS', params=params)
-##        n_jobs[tag] = -1
-##        v_dict[tag] = z_bin
-##        tag_list.append(tag)
-
+    # ############################################
+    # 2. Lower bound: Training with weak labels
+    # 2.a : Also case where we assume IPL mixing matrix M
+    #
     # ############################################
     # Training with the weak labels with Stochastic Gradient Descent
-    tag = 'Keras-LR-Weak-SGD'
-    title[tag] = 'Keras LR trained with weak labels with Stochastic GD'
-    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                              output_size=n_classes,
-                                              optimizer='SGD',
-                                              params=params_keras)
+    tag = '{}-Weak-{}'.format(classifier_name, optimizer)
+    title[tag] = '{} trained with weak labels with {}'.format(classifier_name,
+                                                              optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
     n_jobs[tag] = 1
     v_dict[tag] = z_bin
     tag_list.append(tag)
 
-#    # ############################################
-#    # Training with the weak labels loss with Stochastic Gradient Descent
-#    tag = 'Keras-MLP-Weak-SGD'
-#    title[tag] = 'Keras MLP Weak loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-#                                                output_size=n_classes,
-#                                                optimizer='SGD',
-#                                                params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = z_bin
-#    tag_list.append(tag)
-#
-#    #######################################################################
-#    # BASELINES:
-#    # 3. Competitor: Optimistic Superset Learning and weak labels
-#    #
-#    # ##################################
-#    # Optimistic Superset Learning (OSL)
-#    tag = 'OSL'
-#    title[tag] = 'Optimistic Superset Loss (OSL)'
-#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-#                                          optimizer='GD', params=params)
-#    n_jobs[tag] = -1
-#    v_dict[tag] = z_bin
-#    tag_list.append(tag)
-#
-##        # ############################################
-##        # Optimistic Superset Learning (OSL) with BFGS
-##        tag = 'OSL-BFGS'
-##        title[tag] = 'Optimistic Superset Loss (OSL) with BFGS'
-##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='OSL',
-##                                              optimizer='BFGS', params=params)
-##        n_jobs[tag] = -1
-##        v_dict[tag] = z_bin
-##        tag_list.append(tag)
-
-## TODO: ADD OSL TO THE EXPERIMENTS
-#    # ############################################
-#    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-#    tag = 'Keras-LR-OSL-SGD'
-#    title[tag] = 'Keras OSL loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-#                                              output_size=n_classes,
-#                                              optimizer='SGD',
-#                                              OSL=True,
-#                                              params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = z_bin
-#    tag_list.append(tag)
-#
-#    # ############################################
-#    # Miquel: Add hoc Supervised loss with Stochastic Gradient Descent
-#    tag = 'Keras-MLP-OSL-SGD'
-#    title[tag] = 'Keras MLP OSL loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-#                                                output_size=n_classes,
-#                                                optimizer='SGD',
-#                                                OSL=True,
-#                                                params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = z_bin
-#    tag_list.append(tag)
-#
-#    #######################################################################
-#    # OUR PROPOSED METHODS:
-#    # 1. Upper bound (if we know M): Training with Mproper virtual labels
-#    #
-#    v_method = 'Mproper'
-#    # # ############################################
-#    # # Add hoc M-proper loss with Gradient Descent
-#    tag = '{}-GD'.format(v_method)
-#    title[tag] = 'M-proper loss with Gradient Descent'
-#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                          optimizer='GD', params=params)
-#    n_jobs[tag] = -1
-#    v_dict[tag] = v[v_method]
-#    tag_list.append(tag)
-#
-##        # # ############################################
-##        # # Add hoc M-proper loss with BFGS
-##        tag = '{}-BFGS'.format(v_method)
-##        title[tag] = 'M-proper loss with Gradient Descent'
-##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-##                                              optimizer='BFGS', params=params)
-##        n_jobs[tag] = -1
-##        v_dict[tag] = v[v_method]
-##        tag_list.append(tag)
-
     # ############################################
-    # Miquel: LR M-proper loss with Stochastic Gradient Descent
-    tag = 'Keras-LR-{}-SGD'.format(v_method)
-    title[tag] = 'Keras Logistic regression M-proper loss with Stochastic GD'
-    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                              output_size=n_classes,
-                                              optimizer='SGD',
-                                              params=params_keras)
+    # 3. Competitor: Optimistic Superset Learning and weak labels
+    #
+    # ##################################
+    # Optimistic Superset Learning (OSL)
+    ## FIXME There is a problem with argmax() and argument keep_dims
+    #tag = '{}-OSL-{}'.format(classifier_name, optimizer)
+    #title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
+    #clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+    #                      optimizer=optimizer, OSL=True, params=params_keras)
+    #n_jobs[tag] = 1
+    #v_dict[tag] = z_bin
+    #tag_list.append(tag)
+
+    #######################################################################
+    # OUR PROPOSED METHODS:
+    # 1. Upper bound (if we know M): Training with Mproper virtual labels
+    #
+    # ############################################
+    # Known M with pseudoinverse
+    v_method = 'known-M-pseudo'
+    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
-#    # ############################################
-#    # Miquel: MLP M-proper loss with Stochastic Gradient Descent
-#    tag = 'Keras-MLP-{}-SGD'.format(v_method)
-#    title[tag] = 'Keras MLP M-proper loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-#                                                output_size=n_classes,
-#                                                optimizer='SGD',
-#                                                params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = v[v_method]
-#    tag_list.append(tag)
-#
-#    #######################################################################
-#    # OUR PROPOSED METHODS:
-#    # 2. If we assume quasi_IPL M: Training with virtual labels for q_IPL
-#    #
-    v_method = 'quasi_IPL'
-#    # ############################################
-#    # Virtual Label Learning with Gradient Descent
-#    tag = 'VLL-{}-GD'.format(v_method)
-#    title[tag] = 'Virtual Label Learning (VLL) with Gradient Descent'
-#    wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-#                                          optimizer='GD', params=params)
-#    n_jobs[tag] = -1
-#    v_dict[tag] = v[v_method]
-#    tag_list.append(tag)
-#
-##        # ###################################################
-##        # Virtual Label Learning with BFGS and regularization
-##        #
-##        tag = 'VLL-{}-BFGS'.format(v_method)
-##        title[tag] = 'Virtual Label Learning (VLL) with BFGS and regularization'
-##        # TODO see if default params are not that bad
-##        #params = {'alpha': (2.0 + nf)/2, 'loss': loss}    # This alpha is an heuristic
-##        wLR[tag] = wlc.WeakLogisticRegression(n_classes, method='VLL',
-##                                              optimizer='BFGS', params=params)
-##        n_jobs[tag] = -1
-##        v_dict[tag] = v[v_method]
-##        tag_list.append(tag)
-
     # ############################################
-    # Miquel: virtual labels assuming quasi_IPL loss with SGD
-    tag = 'Keras-LR-VLL-{}-SGD'.format(v_method)
-    title[tag] = 'Keras Logistic regression VLL ({}) loss with Stochastic GD'.format(v_method)
-    wLR[tag] = km.KerasWeakLogisticRegression(input_size=X.shape[1],
-                                              output_size=n_classes,
-                                              optimizer='SGD',
-                                              params=params_keras)
+    # Known M with new method not convex
+    v_method = 'known-M-new'
+    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    title[tag] = '{} {} and new method with {}'.format(classifier_name,
+                                                       v_method,
+                                                       optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
 
-#    # ############################################
-#    # Miquel: MLP assuming quasi_IPL with Stochastic Gradient Descent
-#    tag = 'Keras-MLP-VLL-{}-SGD'.format(v_method)
-#    title[tag] = 'Keras MLP VLL loss with Stochastic Gradient Descent'
-#    wLR[tag] = km.KerasWeakMultilayerPerceptron(input_size=X.shape[1],
-#                                                output_size=n_classes,
-#                                                optimizer='SGD',
-#                                                params=params_keras)
-#    n_jobs[tag] = 1
-#    v_dict[tag] = v[v_method]
-#    tag_list.append(tag)
+    # ############################################
+    # Known M with new method convex
+    v_method = 'known-M-new-conv'
+    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    title[tag] = '{} {} and new method with {}'.format(classifier_name,
+                                                       v_method,
+                                                       optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
+    n_jobs[tag] = 1
+    v_dict[tag] = v[v_method]
+    tag_list.append(tag)
+
+    # ############################################
+    # 2. If we assume quasi-IPL M: Training with virtual labels for q_IPL
+    #
+    # ############################################
+    # Virtual labels assuming quasi-IPL loss with SGD
+    v_method = 'quasi-IPL'
+    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
+    n_jobs[tag] = 1
+    v_dict[tag] = v[v_method]
+    tag_list.append(tag)
 
     # ############
     # Evaluation and plot of each model
@@ -554,7 +389,7 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
     for i, tag in enumerate(tag_list):
         print(tag)
         t_start = time.clock()
-        Pe_tr[tag], Pe_cv[tag] = evaluateClassif(wLR[tag], X, y,
+        Pe_tr[tag], Pe_cv[tag] = evaluateClassif(clf_dict[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
                                                  n_jobs=n_jobs[tag])
         seconds = time.clock() - t_start
@@ -610,16 +445,16 @@ def run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it, method,
 ###############################################################################
 # ## MAIN #####################################################################
 ###############################################################################
-def main(problems, ns, nf, n_classes, n_sim, loss, rho, n_it, method, method2,
+def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
          alpha, beta, gamma, path_results):
 
-    problem_list = problems.split(',')
-    method_list = method.split(',')
+    dataset_list = datasets.split(',')
+    mixing_matrix_list = mixing_matrix.split(',')
 
-    for problem in problem_list:
-        for method in method_list:
-            run_experiment(problem, ns, nf, n_classes, n_sim, loss, rho, n_it,
-                           method, method2, alpha, beta, gamma, path_results)
+    for dataset in dataset_list:
+        for mixing_matrix in mixing_matrix_list:
+            run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
+                           mixing_matrix, alpha, beta, gamma, path_results)
 
 if __name__ == '__main__':
     (options, args) = parse_arguments()

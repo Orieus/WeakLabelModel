@@ -71,7 +71,7 @@ def brier_loss(y_true, y_pred):
                     bs += (y_pred[n, c] - y_true[n, c])**2
             return bs/N
     """
-    return K.mean(K.sum(K.square(y_pred - K.cast(y_true, 'float32')), axis=1))
+    return K.mean(K.sum(K.square(y_pred - K.cast(y_true, K.floatx())), axis=1))
 
 
 # FIXME add the parameter rho to the gradient descent
@@ -101,6 +101,7 @@ class KerasModel(BaseEstimator):
             self.class_weights = class_weights
 
         if OSL is True:
+            ## FIXME There is a problem with argmax() and argument keep_dims
             if np.all(self.class_weights):
                 loss = osl_brier_loss
                 loss.__name__ = 'osl_brier_loss'

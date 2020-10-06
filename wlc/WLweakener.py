@@ -9,6 +9,7 @@ from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 import sys
 # import ipdb
+import cvxpy
 
 
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
@@ -39,7 +40,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
                                 is observed with a different probability.
                                 Parameters alpha, beta and gamma represent the
                                 probability of a false label for each column.
-                'quasi_IPL':    This is the quasi independent partial label
+                'quasi-IPL':    This is the quasi independent partial label
                                 case discussed in the paper.
 
     Returns
@@ -112,7 +113,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
                 [alpha*(1-alpha), beta*(1-beta), 0.0],
                 [alpha**2,        beta**2,       gamma**2]])
 
-    elif method == 'quasi_IPL':
+    elif method == 'quasi-IPL':
 
         # Convert beta to numpy array
         if isinstance(beta, (list, tuple, np.ndarray)):
@@ -211,6 +212,43 @@ def binarizeWeakLabels(z, c):
     return z_bin
 
 
+def computeVirtualMatrixNewMethod(weak_labels, mixing_matrix, convex=True):
+    """
+    Parameters
+    ----------
+    weak_labels : (n_samples, n_weak_labels) numpy.ndarray
+        Binary indication matrix with only one one per row indicating
+        to which class the instance belongs to.
+    mixing_matrix : (n_weak_labels, n_true_labels) numpy.ndarray
+        Mixing matrix of floats corresponding to the stochastic
+        process that generates the weak labels from the true labels.
+    Convex : boolean
+
+    Returns
+    -------
+    virtual_matrix : (n_samples, n_weak_labels) numpy.ndarray
+    """
+    d,c = mixing_matrix.shape
+    p = np.sum(weak_labels,0)/np.sum(weak_labels)
+    I = np.eye(c)
+    c1 = np.ones([c,1])
+    d1 = np.ones([d,1])
+    if convex == True:
+        hat_Y = cvxpy.Variable((c,d))
+        prob = cvxpy.Problem(cvxpy.Minimize(
+            cvxpy.norm(cvxpy.hstack([cvxpy.norm(hat_Y[:,i])*p[i] for i in range(d)]),1)),
+                          [hat_Y @ mixing_matrix == I,
+                           hat_Y.T @ c1 == d1])
+    else:
+        hat_Y = cvxpy.Variable((c,d))
+        prob = cvxpy.Problem(cvxpy.Minimize(
+            cvxpy.norm(cvxpy.hstack([cvxpy.norm(hat_Y[:,i])*p[i] for i in range(d)]),1)),
+                          [hat_Y @ mixing_matrix == I])
+    prob.solve()
+    return hat_Y.value
+
+
+# FIXME change reference to NewMethod to a useful name
 def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     """
     Generate the set of virtual labels v for the (decimal) weak labels in z,
@@ -229,12 +267,14 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
 
                  - 'IPL'        :Independet Partial Labels. Equivalent to
                                  supervised
-                 - 'quasi_IPL'  :Computes virtual labels assuming that the
-                                 mixing matrix M was 'quasi_IPL' without
+                 - 'quasi-IPL'  :Computes virtual labels assuming that the
+                                 mixing matrix M was 'quasi-IPL' without
                                  knowing the M
-                 - 'Mproper'    :Computes virtual labels for a M-proper loss.
+                 - 'known-M-pseudo'    :Computes virtual labels for a M-proper loss.
                  - 'MCC'        :Computes virtual labels for a M-CC loss
                                  (Not available yet)
+                 - 'known-M-new'       :Computes virtual labels with the new method
+                 - 'known-M-new-conv'  :Computes virtual labels with the new method and convex
         M       :Mixing matrix. Only for methods 'Mproper' and 'MCC'
         dec_labels :A list of indices in {0, 1, ..., 2**c}: dec_labels[i] is an
                  integer whose binary representation encodes the weak labels
@@ -252,7 +292,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
 
     if method in ['supervised', 'IPL']:
         v = binarizeWeakLabels(z, c).astype(float)
-    elif method == 'quasi_IPL':    # quasi-independent labels
+    elif method == 'quasi-IPL':    # quasi-independent labels
 
         # The virtual labels are computed from the weak label vectors
         v = binarizeWeakLabels(z, c).astype(float)
@@ -267,13 +307,13 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 aux[aux == 0] = weak_zero
                 v[index, :] = aux
             else:
-                # In the quasi_IPL method, it is assumed that nor z=0 nor
+                # In the quasi-IPL method, it is assumed that nor z=0 nor
                 # z=2**C will happen. A zero vector is assigned here, just in
                 # case, though the choice is arbitrary.
                 # TODO MPN I changed Nans to zeros. Is this important?
                 v[index, :] = np.array([None] * c)
 
-    elif method == 'Mproper':
+    elif method in ['known-M-pseudo', 'known-M-new', 'known-M-new-conv']:
         # Compute array of all possible weak label vectors (in decimal format)
         # in the appropriate order, if not given.
         if dec_labels is None:
@@ -290,7 +330,14 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
         z2i = dict(list(zip(dec_labels, list(range(len(dec_labels))))))
 
         # Compute the virtual label matrix
-        Y = np.linalg.pinv(M)
+        if method == 'known-M-pseudo':
+            Y = np.linalg.pinv(M)
+        elif method == 'known-M-new':
+            binary_z = label_binarize(z, range(2**c))
+            Y = computeVirtualMatrixNewMethod(binary_z, M, convex=False)
+        elif method == 'known-M-new-conv':
+            binary_z = label_binarize(z, range(2**c))
+            Y = computeVirtualMatrixNewMethod(binary_z, M, convex=True)
 
         # THIS IS NO LONGER REQUIRD
         # If mixing matrix is square, weak labels need to be transformed from
@@ -342,9 +389,9 @@ def main():
         flip_y=0.0001, class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
         shuffle=True, random_state=None)
 
-    M = computeM(c, alpha=0.5, beta=0.5, method='quasi_IPL')
+    M = computeM(c, alpha=0.5, beta=0.5, method='quasi-IPL')
     z = generateWeak(y, M, c)
-    v = computeVirtual(z, c, method='quasi_IPL')
+    v = computeVirtual(z, c, method='quasi-IPL')
 
     print(M)
     print(z)
