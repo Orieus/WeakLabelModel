@@ -36,14 +36,14 @@ class TestWLweakener(unittest.TestCase):
         assert_array_almost_equal(M, expected)
 
         # FIXME see the reason of the ordering
-        M = computeM(c=2, method='quasi_IPL', beta=0.2)
+        M = computeM(c=2, method='quasi-IPL', beta=0.2)
         expected = np.array([[0., 0.],
                              [0., 1.],
                              [1., 0.],
                              [0., 0.]])
         assert_array_equal(M, expected)
 
-        M = computeM(c=3, method='quasi_IPL', beta=0.0)
+        M = computeM(c=3, method='quasi-IPL', beta=0.0)
         expected = np.array([[0., 0., 0.],
                              [0., 0., 1.],
                              [0., 1., 0.],
@@ -60,7 +60,7 @@ class TestWLweakener(unittest.TestCase):
         expected = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
         assert_array_equal(z_bin, expected)
 
-        z_bin = computeVirtual(z, c=2, method='quasi_IPL')
+        z_bin = computeVirtual(z, c=2, method='quasi-IPL')
         expected = np.array([[.5, .5], [0, 1], [1, 0], [np.nan, np.nan]])
         assert_array_almost_equal(z_bin, expected)
 
