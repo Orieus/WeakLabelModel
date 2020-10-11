@@ -276,13 +276,6 @@ def generateM(c, method='supervised', alpha=0.2, beta=0.5):
 
     elif method == 'random_weak':
 
-        # beta: noise sparsity. (alpha > 0 or an array of c positive values)
-        #    smaller alpha imply that the noise will be concentrated in
-        #    a few classes. Higher values imply that all classes will have
-        #    similar probabilities of being the noisy class.
-        # Option 'noisy' is equivalent to 'random_noise' with alpha = inf.
-        # Old option 'random_weak' is equivalent to alpha = 1
-
         # Number or rows. Equal to 2**c to simulate a scenario where all
         # possible binary label vectors are possible.
         d = 2**c
@@ -448,22 +441,23 @@ def computeVirtualMatrixNewMethod(weak_labels, mixing_matrix, convex=True):
     -------
     virtual_matrix : (n_samples, n_weak_labels) numpy.ndarray
     """
-    d,c = mixing_matrix.shape
-    p = np.sum(weak_labels,0)/np.sum(weak_labels)
+    d, c = mixing_matrix.shape
+    p = np.sum(weak_labels, 0) / np.sum(weak_labels)
     I = np.eye(c)
-    c1 = np.ones([c,1])
-    d1 = np.ones([d,1])
-    if convex == True:
-        hat_Y = cvxpy.Variable((c,d))
-        prob = cvxpy.Problem(cvxpy.Minimize(
-            cvxpy.norm(cvxpy.hstack([cvxpy.norm(hat_Y[:,i])**2*p[i] for i in range(d)]),1)),
-                          [hat_Y @ mixing_matrix == I,
-                           hat_Y.T @ c1 == d1])
+    c1 = np.ones([c, 1])
+    d1 = np.ones([d, 1])
+    if convex is True:
+        hat_Y = cvxpy.Variable((c, d))
+        prob = cvxpy.Problem(
+            cvxpy.Minimize(cvxpy.norm(cvxpy.hstack(
+                [cvxpy.norm(hat_Y[:, i])**2 * p[i] for i in range(d)]), 1)),
+            [hat_Y @ mixing_matrix == I, hat_Y.T @ c1 == d1])
     else:
-        hat_Y = cvxpy.Variable((c,d))
-        prob = cvxpy.Problem(cvxpy.Minimize(
-            cvxpy.norm(cvxpy.hstack([cvxpy.norm(hat_Y[:,i]**2*p[i] for i in range(d)]),1)),
-                          [hat_Y @ mixing_matrix == I])
+        hat_Y = cvxpy.Variable((c, d))
+        prob = cvxpy.Problem(
+            cvxpy.Minimize(cvxpy.norm(cvxpy.hstack(
+                [cvxpy.norm(hat_Y[:, i])**2 * p[i] for i in range(d)]), 1)),
+            [hat_Y @ mixing_matrix == I])
     prob.solve()
     return hat_Y.value
 
@@ -523,7 +517,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
             aux = v[index, :]
             weak_sum = np.sum(aux)
             if weak_sum != c:
-                weak_zero = float(1-weak_sum)/(c-weak_sum)
+                weak_zero = float(1 - weak_sum)/(c - weak_sum)
                 aux[aux == 0] = weak_zero
                 v[index, :] = aux
             else:
@@ -542,7 +536,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 dec_labels = np.arange(2**c)
             elif M.shape[0] == c:
                 # Single-class label vectors are assumed
-                dec_labels = 2**np.arange(c-1, -1, -1)
+                dec_labels = 2**np.arange(c - 1, -1, -1)
             else:
                 raise ValueError("Weak labels for the given M are unknown")
 
