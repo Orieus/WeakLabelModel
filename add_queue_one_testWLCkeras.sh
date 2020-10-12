@@ -28,5 +28,6 @@ mkdir -p 'results'
 
 datasets=gauss_quantiles
 
-time python testWLCkeras.py -p ${datasets} -s 2000 -f 2 -c 8 -m 10 \
-        -i 1000 -l square -e IPL -t Mproper
+time python testWLCkeras.py --datasets ${datasets} --n-samples 2000 \
+    --n-features 2 --n-classes 8 --n-simulations 10 --n-iterations 1000 \
+    --loss square --mixing-matrix IPL --alpha 0.2 --beta 0.2
