@@ -5,7 +5,7 @@ from numpy.testing import assert_equal
 from numpy.testing import assert_array_equal
 from numpy.testing import assert_array_almost_equal
 
-from wlc.WLweakener import computeM
+from wlc.WLweakener import computeM, generateM
 from wlc.WLweakener import computeVirtual
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
@@ -85,6 +85,33 @@ class TestWLweakener(unittest.TestCase):
                              [0, 0, 0, 1],
                             ])
         assert_equal(z_bin, expected)
+
+    def test_not_mixing_virtual(self):
+        alpha = 0.0
+        # TODO Is beta necessary in this test?
+        beta = 1.0
+        n_classes = 5
+
+        y = np.random.randint(low=0, high=n_classes, size=200)
+        # Convert y into a binary matrix
+        y_bin = label_binarize(y, list(range(n_classes)))
+        y_bin_float = y_bin.astype(float)
+
+        # TODO This creates a NaN error: 'quasi-IPL', 'IPL'
+        for mixing_method in ['supervised', 'noisy', 'random_noise',
+                              'random_weak']:
+            # Generate weak labels
+            M = generateM(n_classes, method=mixing_method, alpha=alpha, beta=beta)
+            z = generateWeak(y, M)
+            z_bin = binarizeWeakLabels(z, n_classes)
+            np.testing.assert_equal(y_bin_float, z_bin)
+
+            # Compute the virtual labels
+            # TODO Should these pass the test? 'known-M-opt', 'known-M-opt-conv'
+            v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo']
+            for v_method in v_methods:
+                virtual = computeVirtual(z, n_classes, method=v_method, M=M)
+                np.testing.assert_equal(y_bin_float, virtual)
 
 def main():
     unittest.main()

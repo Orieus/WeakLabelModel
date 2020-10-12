@@ -83,9 +83,6 @@ def parse_arguments():
     parser.add_option('-b', '--beta', dest='beta', default=0.5,
                       type=float,
                       help='Beta probability parameter')
-    parser.add_option('-g', '--gamma', dest='gamma', default=0.5,
-                      type=float,
-                      help='Gamma probability parameter')
     parser.add_option('-i', '--n-iterations', dest='n_it', default=10,
                       type=int, help=('Number of iterations of '
                                       'Gradient Descent.'))
@@ -151,7 +148,7 @@ def load_dataset(dataset, n_samples=1000, n_features=10, n_classes=2,
 
 def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                    mixing_matrix,
-                   alpha, beta, gamma, path_results):
+                   alpha, beta, path_results):
     np.random.seed(seed)
     ############################
     # ## Create a Diary for all the logs and results
@@ -177,33 +174,25 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                                                           seed=seed)
     diary.add_entry('dataset', ['name', dataset, 'size', n_samples,
                                 'n_features', n_features, 'n_classes',
-                                n_classes, 'mixing_matrix', mixing_matrix, 'alpha', alpha, 'beta', beta, 'gamma',
-                                gamma])
+                                n_classes, 'mixing_matrix', mixing_matrix,
+                                'alpha', alpha, 'beta', beta])
 
     # Convert y into a binary matrix
     y_bin = label_binarize(y, list(range(n_classes)))
 
     # Generate weak labels
-    M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma,
-                     method=mixing_matrix)
+    M = wlw.generateM(n_classes, method=mixing_matrix, alpha=alpha, beta=beta)
     z = wlw.generateWeak(y, M)
     # Compute the virtual labels
-    v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo', 'known-M-new',
-                 'known-M-new-conv']
+    v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo', 'known-M-opt',
+                 'known-M-opt-conv']
     v = {}
     for v_method in v_methods:
         v[v_method] = wlw.computeVirtual(z, n_classes, method=v_method, M=M)
 
     # Convert z to a list of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
-
-    if alpha == 1.0 and beta == 0.0:
-        np.testing.assert_equal(y_bin, z_bin)
-        np.testing.assert_equal(y_bin, v['IPL'])
-        np.testing.assert_equal(y_bin, v['quasi-IPL'])
-        np.testing.assert_equal(y_bin, v['known-M-pseudo'])
-        np.testing.assert_equal(y_bin, v['known-M-new'])
-        np.testing.assert_equal(y_bin, v['known-M-new-conv'])
+    # TODO Add to diary: p = np.sum(weak_labels,0)/np.sum(weak_labels)
 
     #######################################
     # Explanation of the different labels
@@ -238,7 +227,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     ## n_classes = 3
     ## y = np.array([2,0,1])
     ## y_bin = label_binarize(y, range(n_classes))
-    ## M = wlw.computeM(n_classes, alpha=alpha, beta=beta, gamma=gamma, method=mixing_matrix)
+    ## M = wlw.computeM(n_classes, alpha=alpha, beta=beta, method=mixing_matrix)
     ## z = wlw.generateWeak(y, M, n_classes)
     ## # TODO if this is not to compute virtual it shouldn't be called the
     ## #  same function. It should be dec to bin or seomething like that
@@ -345,7 +334,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
     # ############################################
     # Known M with new method not convex
-    v_method = 'known-M-new'
+    v_method = 'known-M-opt'
     tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
@@ -358,7 +347,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
     # ############################################
     # Known M with new method convex
-    v_method = 'known-M-new-conv'
+    v_method = 'known-M-opt-conv'
     tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
@@ -446,7 +435,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 # ## MAIN #####################################################################
 ###############################################################################
 def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
-         alpha, beta, gamma, path_results):
+         alpha, beta, path_results):
 
     dataset_list = datasets.split(',')
     mixing_matrix_list = mixing_matrix.split(',')
@@ -454,7 +443,7 @@ def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
     for dataset in dataset_list:
         for mixing_matrix in mixing_matrix_list:
             run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
-                           mixing_matrix, alpha, beta, gamma, path_results)
+                           mixing_matrix, alpha, beta, path_results)
 
 if __name__ == '__main__':
     (options, args) = parse_arguments()
