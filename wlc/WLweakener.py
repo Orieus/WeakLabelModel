@@ -212,7 +212,7 @@ def binarizeWeakLabels(z, c):
     return z_bin
 
 
-def computeVirtualMatrixNewMethod(weak_labels, mixing_matrix, convex=True):
+def computeVirtualMatrixOptimized(weak_labels, mixing_matrix, convex=True):
     """
     Parameters
     ----------
@@ -248,7 +248,7 @@ def computeVirtualMatrixNewMethod(weak_labels, mixing_matrix, convex=True):
     return hat_Y.value
 
 
-# FIXME change reference to NewMethod to a useful name
+# FIXME change reference to Optimized to a useful name
 def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     """
     Generate the set of virtual labels v for the (decimal) weak labels in z,
@@ -273,8 +273,8 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                  - 'known-M-pseudo'    :Computes virtual labels for a M-proper loss.
                  - 'MCC'        :Computes virtual labels for a M-CC loss
                                  (Not available yet)
-                 - 'known-M-new'       :Computes virtual labels with the new method
-                 - 'known-M-new-conv'  :Computes virtual labels with the new method and convex
+                 - 'known-M-opt'       :Computes virtual labels with the opt method
+                 - 'known-M-opt-conv'  :Computes virtual labels with the opt method and convex
         M       :Mixing matrix. Only for methods 'Mproper' and 'MCC'
         dec_labels :A list of indices in {0, 1, ..., 2**c}: dec_labels[i] is an
                  integer whose binary representation encodes the weak labels
@@ -313,7 +313,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 # TODO MPN I changed Nans to zeros. Is this important?
                 v[index, :] = np.array([None] * c)
 
-    elif method in ['known-M-pseudo', 'known-M-new', 'known-M-new-conv']:
+    elif method in ['known-M-pseudo', 'known-M-opt', 'known-M-opt-conv']:
         # Compute array of all possible weak label vectors (in decimal format)
         # in the appropriate order, if not given.
         if dec_labels is None:
@@ -332,12 +332,12 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
         # Compute the virtual label matrix
         if method == 'known-M-pseudo':
             Y = np.linalg.pinv(M)
-        elif method == 'known-M-new':
+        elif method == 'known-M-opt':
             binary_z = label_binarize(z, range(2**c))
-            Y = computeVirtualMatrixNewMethod(binary_z, M, convex=False)
-        elif method == 'known-M-new-conv':
+            Y = computeVirtualMatrixOptimized(binary_z, M, convex=False)
+        elif method == 'known-M-opt-conv':
             binary_z = label_binarize(z, range(2**c))
-            Y = computeVirtualMatrixNewMethod(binary_z, M, convex=True)
+            Y = computeVirtualMatrixOptimized(binary_z, M, convex=True)
 
         # THIS IS NO LONGER REQUIRD
         # If mixing matrix is square, weak labels need to be transformed from
