@@ -113,6 +113,74 @@ class TestWLweakener(unittest.TestCase):
                 virtual = computeVirtual(z, n_classes, method=v_method, M=M)
                 np.testing.assert_equal(y_bin_float, virtual)
 
+    def test_generateM(self):
+        # params in this order: (c, method, alpha, beta, expected)
+        params = ((3, 'supervised', None, None,
+                   np.array([[1, 0, 0],
+                             [0, 1, 0],
+                             [0, 0, 1]])),
+                  (3, 'noisy', 0.2, None,
+                   np.array([[.8, .1, .1],
+                             [.1, .8, .1],
+                             [.1, .1, .8]])),
+                  (4, 'noisy', 0.9, None,
+                   np.array([[.1, .3, .3, .3],
+                             [.3, .1, .3, .3],
+                             [.3, .3, .1, .3],
+                             [.3, .3, .3, .1]])),
+                  (2, 'quasi-IPL', 0.8, 0.2,
+                   np.array([[0., 0.],
+                             [0., 1.],
+                             [1., 0.],
+                             [0., 0.]])),
+                  (3, 'quasi-IPL', 0.8, 0.0,
+                   np.array([[0., 0., 0.],
+                             [0., 0., 1.],
+                             [0., 1., 0.],
+                             [0., 0., 0.],
+                             [1., 0., 0.],
+                             [0., 0., 0.],
+                             [0., 0., 0.],
+                             [0., 0., 0.]])),
+                  # This test fails because of a division by 0 in a matrix B
+                  # full of zeros.
+                  # (4, 'random_noise', 0.9, np.inf,
+                  #  np.array([[.1, .3, .3, .3],
+                  #            [.3, .1, .3, .3],
+                  #            [.3, .3, .1, .3],
+                  #            [.3, .3, .3, .1]])),
+                  # This test fails, find reason
+                  #(4, 'random_weak', 0.9, np.inf,
+                  # np.array([[.1, .3, .3, .3],
+                  #           [.3, .1, .3, .3],
+                  #           [.3, .3, .1, .3],
+                  #           [.3, .3, .3, .1]])),
+                 )
+        for c, m, a, b, expected in params:
+            M = generateM(c=c, method=m, alpha=a, beta=b)
+            assert_array_almost_equal(M, expected,
+                                      err_msg=('c={}, ' +
+                                               'method={}, ' +
+                                               'alpha={}, ' +
+                                               'beta={}').format(c, m, a, b))
+
+
+    def test_generateM_sum_columns(self):
+        params = ((3, 'noisy', [0.1, 0.2, 0.3], None),
+                  (3, 'random_noise', [0.1, 0.2, 0.3], [0.2, 0.3, 0.4]),
+                  (3, 'random_weak', [0.1, 0.2, 0.3], 0.2),
+                  (3, 'IPL', 0, [0.1, 0.2, 0.3]),
+                  (3, 'IPL3', 0, [0.1, 0.2, 0.3]),
+                  (3, 'quasi-IPL', [0.9, 0.9, 0.9, 0.9], 0.1),
+                 )
+
+        for c, method, alpha, beta in params:
+            M = generateM(c, method=method, alpha=alpha, beta=beta)
+            column_sum = np.sum(M, axis=0)
+            expected = np.ones(c)
+            assert_array_almost_equal(column_sum, expected)
+
+
 def main():
     unittest.main()
 

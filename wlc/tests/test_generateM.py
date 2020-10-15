@@ -1,4 +1,4 @@
-from WLweakener import generateM
+from wlc.WLweakener import generateM
 import numpy as np
 
 

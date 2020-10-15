@@ -236,7 +236,8 @@ def generateM(c, method='supervised', alpha=0.2, beta=0.5):
     -------
     M : array-like, shape = (n_classes, n_classes)
     """
-
+    # Change infinite for a very large number
+    beta = np.nan_to_num(beta)
     if method == 'supervised':
 
         M = np.eye(c)
@@ -248,7 +249,6 @@ def generateM(c, method='supervised', alpha=0.2, beta=0.5):
              + np.ones((c, c)) * valpha / (c - 1))
 
     elif method == 'random_noise':
-
         # Diagonal component (no-noise probabilities)
         # np.array is used just in case beta is a list
         D = (1 - np.array(alpha)) * np.eye(c)
@@ -275,7 +275,6 @@ def generateM(c, method='supervised', alpha=0.2, beta=0.5):
         M = D + B
 
     elif method == 'random_weak':
-
         # Number or rows. Equal to 2**c to simulate a scenario where all
         # possible binary label vectors are possible.
         d = 2**c
