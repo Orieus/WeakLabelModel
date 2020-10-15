@@ -63,6 +63,6 @@ declare -a dataset_names=(
 
 datasets=${dataset_names[$PBS_ARRAYID]}
 
-time python testWLCkeras.py -p ${datasets} -s 1000 -f 2 -c 5 -m 10 \
+time python main.py -p ${datasets} -s 1000 -f 2 -c 5 -m 10 \
         -i 40 -l square -e random_weak \
         -t Mproper -a 1.0 -b 0.0 -u results_a10_b0

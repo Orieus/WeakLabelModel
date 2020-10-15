@@ -45,7 +45,7 @@ kernel -> Change kernel -> weaklabels
 Current usage (may need updating)
 
 ```
-Usage: testWLCkeras.py [options]
+Usage: main.py [options]
 
 Options:
   -h, --help            show this help message and exit
