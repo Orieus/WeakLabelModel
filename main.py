@@ -22,11 +22,12 @@ from sklearn.preprocessing import label_binarize
 import wlc.WLclassifier as wlc
 import wlc.WLweakener as wlw
 
-import keras_models as km
-from testUtils import plot_data, plot_results, evaluateClassif
-from testUtils import load_dataset
+import utils.keras_models as km
+from utils.data import load_dataset
+from utils.evaluation import evaluateClassif
+from utils.visualization import plot_data, plot_results
 
-from diary import Diary
+from utils.diary import Diary
 
 warnings.filterwarnings("ignore")
 seed = 42

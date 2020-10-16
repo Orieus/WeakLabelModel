@@ -78,3 +78,31 @@ Options:
                         random_weak
 
 ```
+
+
+### Check that all datasets work
+
+The python code in utils/data.py can be run in order to check that all datasets
+can be downloaded, preprocessed and a classifier can be trained on them. This
+can be done by calling the python code as a main file
+
+```
+python utils/data.py
+```
+
+Should output the following for each dataset
+
+
+```
+Testing all datasets
+Evaluating iris[61] dataset
+----------------
+Dataset description:
+    Dataset name: iris
+    Sample size: 150
+    Number of features: 4
+    Number of classes: 3
+Logistic Regression score = 0.9733333333333334
+```
+
+
