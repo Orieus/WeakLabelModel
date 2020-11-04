@@ -80,7 +80,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     np.random.seed(seed)
     ############################
     # ## Create a Diary for all the logs and results
-    diary = Diary(name='testWLCkeras', path=path_results, overwrite=False,
+    diary = Diary(name='main', path=path_results, overwrite=False,
                   image_format='png', fig_format='svg')
     diary.add_notebook('dataset')
     diary.add_notebook('validation')

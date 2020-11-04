@@ -316,16 +316,20 @@ def main(results_path='results', summary_path='', filter_rows={},
     df.rename(columns={'tag': 'model', 'method': 'mixing_matrix_M'},
               inplace=True)
 
-    df.replace({'model': {'Keras-LR-Superv-SGD': '(1) LR-Superv',
-                          'Keras-LR-Mproper-SGD': '(2) LR-Mproper',
-                          'Keras-LR-Weak-SGD': '(3) LR-Weak',
-                          'Keras-LR-VLL-quasi_IPL-SGD': '(4) LR-qIPL',
-                          'Keras-LR-OSL-SGD': '(5) LR-OSL',
-                          'Keras-MLP-Superv-SGD': '(1) FNN-Superv',
-                          'Keras-MLP-Mproper-SGD': '(2) FNN-Mproper',
-                          'Keras-MLP-Weak-SGD': '(3) FNN-Weak',
-                          'Keras-MLP-VLL-quasi_IPL-SGD': '(4) FNN-qIPL',
-                          'Keras-MLP-OSL-SGD': '(5) FNN-OSL'}}, inplace=True)
+    df.replace({'model': {'LR-Superv-SGD': '(1) LR-Superv',
+                          'LR-known-m-pseudo-SGD': '(2) LR-pseudo',
+                          'MLP-known-m-opt-SGD': '(2) LR-opt',
+                          'MLP-known-m-opt-con-SGD': '(2) LR-opt-conv',
+                          'LR-Weak-SGD': '(3) LR-Weak',
+                          'LR-quasi_IPL-SGD': '(4) LR-qIPL',
+                          'LR-OSL-SGD': '(5) LR-OSL',
+                          'MLP-Superv-SGD': '(1) FNN-Superv',
+                          'MLP-known-m-pseudo-SGD': '(2) FNN-pseudo',
+                          'MLP-known-m-opt-SGD': '(2) FNN-opt',
+                          'MLP-known-m-opt-con-SGD': '(2) FNN-opt-conv',
+                          'MLP-Weak-SGD': '(3) FNN-Weak',
+                          'MLP-quasi_IPL-SGD': '(4) FNN-qIPL',
+                          'MLP-OSL-SGD': '(5) FNN-OSL'}}, inplace=True)
 
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
     df.drop_duplicates(subset=['mixing_matrix_M', 'method2', 'n_classes',
