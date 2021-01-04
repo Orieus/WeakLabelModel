@@ -489,9 +489,9 @@ class WLmodel(object):
             M = D + B
 
         elif self.model_class == 'random_weak':
-            # Number or rows.
-            # d = 2**c
-            d = len(self.weak_classes)
+            # Number or rows. Equal to 2**c to simulate a scenario where all
+            # possible binary label vectors are possible.
+            d = 2**c
 
             # Supervised component: Identity matrix with size d x c.
             Ic = np.zeros((d, c))
