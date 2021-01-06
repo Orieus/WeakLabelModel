@@ -767,18 +767,7 @@ class WLmodel(object):
         if optimize:
             if p is None:
                 # Estimate the prior weak label probs from from data
-                binary_z = label_binarize(z, range(2**self.c))
-                p = np.sum(binary_z, 0)
-                # Select the admissible weak classes only
-                p = p[self.weak_classes]
-
-                # Test if the removed components contained any
-                if np.sum(p) != len(z):
-                    print("WARNING: the list of possible weak classes in "
-                          "self.weak_classes ignores weak classes that do"
-                          "exist in the data. This is not expected to happen")
-                # Normalize p as a probability vector
-                p = p / np.sum(p)
+                p = self.estimate_wl_priors(z)
 
         else:
             # Note that in this case the given value of p is ignored
