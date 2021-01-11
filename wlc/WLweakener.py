@@ -631,7 +631,15 @@ class WLmodel(object):
         # errors
         p_reg = (p_reg > 0) * p_reg
         p_reg = p_reg / np.sum(p_reg)
-
+        
+        ## Resolution of the problem in eq (32) and (33)
+        #p_est = np.array([z_count[x] for x in self.weak_classes])
+        #eta = cp.Variable(self.c)
+        #problem = cp.Problem(cp.Minimize(- p_est @ cp.log(self.M @ eta)),
+        #         [eta >= 0,
+        #         np.ones(self.c) @ eta == 1])
+        #problem.solve()
+        #p_reg = self.M @ eta.value
         return p_reg
 
     def virtual_labels(self, z, method, p=None):
