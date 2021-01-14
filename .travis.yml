@@ -1,0 +1,16 @@
+language: python
+python:
+  - "3.8"
+cache: apt
+addons:
+before_install:
+install:
+  # Build/test dependencies
+  - pip install -r requirements38.txt
+  # Get fab to test fab
+  - pip install -e .
+# Command to run tests
+script:
+  - ./runtests.sh
+after_success:
+  - coveralls
