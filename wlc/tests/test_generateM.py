@@ -5,7 +5,7 @@ import numpy as np
 def testM(c, method, alpha, beta):
 
     print(f'-- Testing {method}')
-    M = generateM(c, method=method, alpha=alpha, beta=beta)
+    M = generateM(c, model_class=method, alpha=alpha, beta=beta)
     print(np.round(M * 1000) / 1000)
     print(np.sum(M, 0))
 

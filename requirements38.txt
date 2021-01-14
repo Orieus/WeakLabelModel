@@ -1,0 +1,9 @@
+numpy
+scikit-learn
+scipy
+pandas
+openml
+ipdb
+matplotlib
+cvxpy
+ipykernel

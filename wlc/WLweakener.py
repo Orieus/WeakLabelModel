@@ -110,6 +110,325 @@ def virtual_label_matrix(M, p=None, convex=True):
     return Y
 
 
+def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
+    """
+    Generate a mixing matrix M, given the number of classes c.
+
+    Parameters
+    ----------
+    alpha  : float, optional (default=0.5)
+    beta   : float, optional (default=0.5)
+    gamma  : float, optional (default=0.5)
+    model_class : string, optional (default='supervised')
+        Method to compute M. Available options are:
+            'supervised': Identity matrix. For a fully labeled case
+            'noisy': For a noisy label case: the true label is observed
+                with probabiltity 1 - beta, otherwise one noisy label is
+                taken at random
+            'random_noise': All values of the mixing matrix are taken at
+                random from a uniform distribution. The matrix is
+                normalized to be left-stochastic
+            'IPL':  Independent partial labels: the observed labels are
+                independent. The true label is observed with probatility
+                alfa. Each False label is observed with probability beta
+            'IPL3': A generalized version of IPL, but only for c=3 classes
+                and alpha=1: each false label is observed with a different
+                probability. Parameters alpha, beta and gamma represent the
+                probability of a false label for each column
+            'quasi-IPL': The quasi independent partial label case discussed
+                in the paper
+
+    Returns
+    -------
+    M : array-like, shape = (n_classes, n_classes)
+    """
+    if model_class == 'supervised':
+
+        M = np.eye(c)
+
+    elif model_class == 'noisy':
+
+        M = (np.eye(c) * (alpha - (1 - alpha) / (c - 1))
+             + np.ones((c, c)) * (1 - alpha) / (c - 1))
+
+    elif model_class == 'random_noise':
+
+        M = np.random.rand(c, c)
+        M = M / np.sum(M, axis=0, keepdims=True)
+
+        M = (1 - beta) * np.eye(c) + beta * M
+
+    elif model_class == 'random_weak':
+
+        # Number or rows. Equal to 2**c to simulate a scenario where all
+        # possible binary label vectors are possible.
+        d = 2**c
+
+        # Supervised component: Identity matrix with size d x c.
+        Ic = np.zeros((d, c))
+        for i in range(c):
+            Ic[2**(c - i - 1), i] = 1
+
+        # Weak component: Random weak label proabilities
+        M = np.random.rand(d, c)
+        M = M / np.sum(M, axis=0, keepdims=True)
+
+        # Averaging supervised and weak components
+        M = (1 - beta) * Ic + beta * M
+
+    elif model_class == 'IPL':
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+
+        # Compute mixing matrix row by row for the nonzero rows
+        for z in range(0, d):
+
+            # Convert the decimal value z to a binary list of length c
+            z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
+            modz = sum(z_bin)
+
+            M[z, :] = (alpha**(z_bin) * (1 - alpha)**(1 - z_bin)
+                       * (beta**(modz - z_bin)
+                          * (1 - beta)**(c - modz - 1 + z_bin)))
+
+        # This is likely not required: columns in M should already sum up
+        # to 1
+        M = M / np.sum(M, axis=0)
+
+    elif model_class == 'IPL3':
+
+        M = np.array([
+            [0.0,                 0.0,               0.0],
+            [0,                   0,                 (1 - gamma)**2],
+            [0,                   (1 - beta)**2,     0],
+            [0.0,                 beta * (1 - beta), gamma * (1 - gamma)],
+            [(1 - alpha)**2,      0,                 0],
+            [alpha * (1 - alpha), 0.0,               gamma * (1 - gamma)],
+            [alpha * (1 - alpha), beta * (1 - beta), 0.0],
+            [alpha**2,            beta**2,           gamma**2]])
+
+    elif model_class == 'quasi-IPL':
+
+        # Convert beta to numpy array
+        if isinstance(beta, (list, tuple, np.ndarray)):
+            # Make sure beta is a numpy array
+            beta = np.array(beta)
+        else:
+            beta = np.array([beta] * c)
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+
+        # Compute mixing matrix row by row for the nonzero rows
+        for z in range(1, d - 1):
+
+            # Convert the decimal value z to a binary list of length c
+            z_bin = [int(b) for b in bin(z)[2:].zfill(c)]
+            modz = sum(z_bin)
+
+            M[z, :] = z_bin * (beta**(modz - 1) * (1 - beta)**(c - modz))
+
+        # Remove zero rows
+        M = M[1: d - 1, :]
+
+        # Columns in M should sum up to 1
+        M = M / np.sum(M, axis=0)
+
+    else:
+        raise ValueError("Unknown model to compute M: {}".format( model_class))
+
+    return M
+
+
+def generateM(c, model_class, alpha=0.2, beta=0.5):
+    """
+    Generate a mixing matrix M given some distribution parameters
+
+    Parameters
+    ----------
+    alpha : float in [0, 1] or array-like (size=c), optional (default=0.2)
+        Noise degree parameter. Higher values of this parameter usually
+        mean higher label noise.
+        The specific meaning of this parameter depends on the method:
+        - 'supervised': Ignored.
+        - 'noisy': noise probability (i.e. probability that the weak label
+            does not correspond to the true label).
+            If array-like, this probability is class-dependent
+        - 'random_noise': Noise probability (same as 'noisy')
+        - 'random_weak': Weak label probability. It is the probability that
+            the weak label is generated at random.
+            If array-like, this probability is class-dependent.
+        - 'IPL': Missing label probability. It is the probability that the
+            true label is not observed in the weak label.
+            If array-like, this probability is class-dependent.
+        - 'IPL3': Ignored
+        - 'quasi-IPL': Ignored.
+
+    beta : float (non-negative) or array-like, optional (default=0.5)
+        Noise distribution parameter.
+        The specific meaning of this parameter depends on the method:
+        - 'supervised': Ignored.
+        - 'noisy': Ignored
+        - 'random_noise': Concentration parameter. The noisy label
+            probabilities are generated stochastically according to a
+            Dirichlet distribution with parameters beta. According to this:
+                - beta = 1 is equivalent to a uniform distribution
+                - beta = inf is equivalent to using option 'noisy': the
+                    class of the noisy label is random.
+                - beta < 1 implies higher concentration: most noise
+                    probability gets concentrated in a single class. This
+                    may be useful to simulate situations where a class is
+                    usually mixed with another similar clas, but not with
+                    others.
+            If beta is array-like, a different concentration parameter will
+            be used for each class (i.e. for each column of M)
+        - 'random_weak': Concentration parameter of the weak label
+            probability distribution, which is a Dirichlet.
+                - beta = 1 is equivalent to a uniform distribution
+                - beta = inf is equivalent to a constant probability over
+                    all weak labels
+                - beta < 1 implies higher concentration: most probability
+                    mass is concentrated over a few weak labels
+            If beta is array-like, a different concentration parameter will
+            be used for each class (i.e. for each column of M)
+        - 'IPL': Probability that a noisy label from a given class is
+            observed. If array-like, this probability is class-dependent:
+            beta[c] is the probability that, if the true label is not c,
+            the weak label contains c
+        - 'IPL3': Probability that a noisy label from any class is
+            observed. If array-like, this probability is class-dependent:
+            beta[c] is the probability that, if the true label is c, the
+            weak label contains a label from class c' other than c
+        - 'quasi-IPL': .
+
+    Returns
+    -------
+    M : array-like, shape = (n_weak_classes, c)
+    """
+
+    # Change infinite for a very large number
+    beta = np.nan_to_num(beta)
+    if model_class == 'supervised':
+
+        M = np.eye(c)
+
+    elif model_class == 'noisy':
+
+        valpha = np.array(alpha)
+        M = (np.eye(c) * (1 - valpha - valpha / (c - 1))
+             + np.ones((c, c)) * valpha / (c - 1))
+
+    elif model_class == 'random_noise':
+        # Diagonal component (no-noise probabilities)
+        # np.array is used just in case beta is a list
+        D = (1 - np.array(alpha)) * np.eye(c)
+
+        # Non-diagonal components
+        # Transforma beta into an np.array (if it isn't it).
+        vbeta = np.array(beta) * np.ones(c)
+        B = np.random.dirichlet(vbeta, c).T
+
+        # Remove diagonal component and rescale
+        # I am using here the fact that the conditional distribution of a
+        # rescaled subvector of a dirichlet is a dirichet with the same
+        # parameters, see
+        # https://math.stackexchange.com/questions/1976544/conditional-
+        # distribution-of-subvector-of-a-dirichlet-random-variable
+        # Conditioning...
+        B = B * (1 - np.eye(c))
+        # Rescaling...
+        B = B / np.sum(B, axis=0)
+        # Rescale by (1-beta), which are the probs of noisy labels
+        B = B @ (np.eye(c) - D)
+
+        # Compute M
+        M = D + B
+
+    elif model_class == 'random_weak':
+        # Number or rows. Equal to 2**c to simulate a scenario where all
+        # possible binary label vectors are possible.
+        d = 2**c
+
+        # Supervised component: Identity matrix with size d x c.
+        Ic = np.zeros((d, c))
+        for i in range(c):
+            Ic[2**(c - i - 1), i] = 1
+
+        # Weak component: Random weak label proabilities
+        # Transforma beta into an np.array (if it isn't it).
+        vbeta = np.array(beta) * np.ones(d)
+        B = np.random.dirichlet(vbeta, c).T
+
+        # Averaging supervised and weak components
+        # np.array is used just in case alpha is a list
+        M = (1 - np.array(alpha)) * Ic + np.array(alpha) * B
+
+    elif model_class == 'IPL':
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+
+        valpha = np.array(alpha)
+        vbeta = np.array(beta)
+
+        # Compute mixing matrix row by row for the nonzero rows
+        for z in range(0, d):
+
+            # Convert the decimal value z to a binary list of length c
+            z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
+            modz = sum(z_bin)
+
+            M[z, :] = (((1 - valpha) / vbeta)**z_bin
+                       * (valpha / (1 - vbeta))**(1 - z_bin)
+                       * np.prod(vbeta**z_bin)
+                       * np.prod((1 - vbeta)**(1 - z_bin)))
+
+    elif model_class == 'IPL3':
+
+        b0 = beta[0]
+        b1 = beta[1]
+        b2 = beta[2]
+
+        M = np.array([
+            [0.0, 0.0, 0.0],
+            [0, 0, (1 - b2)**2],
+            [0, (1 - b1)**2, 0],
+            [0.0, b1 * (1 - b1), b2 * (1 - b2)],
+            [(1 - b0)**2, 0, 0],
+            [b0 * (1 - b0), 0.0, b2 * (1 - b2)],
+            [b0 * (1 - b0), b1 * (1 - b1), 0.0],
+            [b0**2, b1**2, b2**2]])
+
+    elif model_class == 'quasi-IPL':
+
+        beta = np.array(beta)
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+
+        # Compute mixing matrix row by row for the nonzero rows
+        for z in range(1, d - 1):
+
+            # Convert the decimal value z to a binary list of length c
+            z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
+            modz = sum(z_bin)
+
+            M[z, :] = z_bin * (beta**(modz - 1) * (1 - beta)**(c - modz))
+
+        # Columns in M should sum up to 1
+        M = M / np.sum(M, axis=0)
+
+    else:
+        raise ValueError("Unknown model to compute M: {}".format( model_class))
+
+    return M
+
+
 class WLmodel(object):
     """
     A class to model a weak labelling process. Includes methods to define a
@@ -188,14 +507,14 @@ class WLmodel(object):
         # State list of weak classes
         if weak_classes is None:
             # The list of weak_classes will be inferred from the model_class
-            if model_class in {'supervised' 'noisy', 'random_noise'}:
+            if model_class in ['supervised', 'noisy', 'random_noise']:
                 self.weak_classes = 2**np.arange(c - 1, -1, -1)
-            elif model_class in {'random_weak', 'IPL', 'IPL3'}:
+            elif model_class in ['random_weak', 'IPL', 'IPL3']:
                 self.weak_classes = np.arange(2**c)
-            elif model_class in {'quasi-IPL'}:
+            elif model_class in ['quasi-IPL']:
                 self.weak_classes = np.arange(1, 2**c - 1)
             else:
-                raise ValueError("Unknown model_class")
+                raise ValueError("Unknown model_class: {}".format(model_class))
         elif weak_classes == 'one-hot':
             self.weak_classes = 2**np.arange(c - 1, -1, -1)
         elif weak_classes == 'non-uniform':
@@ -207,6 +526,14 @@ class WLmodel(object):
             self.weak_classes == weak_classes
 
         return
+
+
+    def generateM(self, alpha=0.2, beta=0.5):
+        M = generateM(c=self.c, model_class=self.model_class, alpha=alpha,
+                      beta=beta)
+        self.M = copy.copy(M)
+        return M
+
 
     def loadM(self, M):
         """
@@ -245,333 +572,12 @@ class WLmodel(object):
 
         return
 
-    def computeM(self, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
-        """
-        Generate a mixing matrix M, given the number of classes c.
-
-        Parameters
-        ----------
-        alpha  : float, optional (default=0.5)
-        beta   : float, optional (default=0.5)
-        gamma  : float, optional (default=0.5)
-        method : string, optional (default='supervised')
-            Method to compute M. Available options are:
-                'supervised': Identity matrix. For a fully labeled case
-                'noisy': For a noisy label case: the true label is observed
-                    with probabiltity 1 - beta, otherwise one noisy label is
-                    taken at random
-                'random_noise': All values of the mixing matrix are taken at
-                    random from a uniform distribution. The matrix is
-                    normalized to be left-stochastic
-                'IPL':  Independent partial labels: the observed labels are
-                    independent. The true label is observed with probatility
-                    alfa. Each False label is observed with probability beta
-                'IPL3': A generalized version of IPL, but only for c=3 classes
-                    and alpha=1: each false label is observed with a different
-                    probability. Parameters alpha, beta and gamma represent the
-                    probability of a false label for each column
-                'quasi-IPL': The quasi independent partial label case discussed
-                    in the paper
-
-        Returns
-        -------
-        M : array-like, shape = (n_classes, n_classes)
-        """
-
-        # Just to abbreviate
-        c = self.c
-
-        if self.model_class == 'supervised':
-
-            M = np.eye(c)
-
-        elif self.model_class == 'noisy':
-
-            M = (np.eye(c) * (alpha - (1 - alpha) / (c - 1))
-                 + np.ones((c, c)) * (1 - alpha) / (c - 1))
-
-        elif self.model_class == 'random_noise':
-
-            M = np.random.rand(c, c)
-            M = M / np.sum(M, axis=0, keepdims=True)
-
-            M = (1 - beta) * np.eye(c) + beta * M
-
-        elif self.model_class == 'random_weak':
-
-            # Number or rows. Equal to 2**c to simulate a scenario where all
-            # possible binary label vectors are possible.
-            d = 2**c
-
-            # Supervised component: Identity matrix with size d x c.
-            Ic = np.zeros((d, c))
-            for i in range(c):
-                Ic[2**(c - i - 1), i] = 1
-
-            # Weak component: Random weak label proabilities
-            M = np.random.rand(d, c)
-            M = M / np.sum(M, axis=0, keepdims=True)
-
-            # Averaging supervised and weak components
-            M = (1 - beta) * Ic + beta * M
-
-        elif self.model_class == 'IPL':
-
-            # Shape M
-            d = 2**c
-            M = np.zeros((d, c))
-
-            # Compute mixing matrix row by row for the nonzero rows
-            for z in range(0, d):
-
-                # Convert the decimal value z to a binary list of length c
-                z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
-                modz = sum(z_bin)
-
-                M[z, :] = (alpha**(z_bin) * (1 - alpha)**(1 - z_bin)
-                           * (beta**(modz - z_bin)
-                              * (1 - beta)**(c - modz - 1 + z_bin)))
-
-            # This is likely not required: columns in M should already sum up
-            # to 1
-            M = M / np.sum(M, axis=0)
-
-        elif self.model_class == 'IPL3':
-
-            M = np.array([
-                [0.0,                 0.0,               0.0],
-                [0,                   0,                 (1 - gamma)**2],
-                [0,                   (1 - beta)**2,     0],
-                [0.0,                 beta * (1 - beta), gamma * (1 - gamma)],
-                [(1 - alpha)**2,      0,                 0],
-                [alpha * (1 - alpha), 0.0,               gamma * (1 - gamma)],
-                [alpha * (1 - alpha), beta * (1 - beta), 0.0],
-                [alpha**2,            beta**2,           gamma**2]])
-
-        elif self.model_class == 'quasi-IPL':
-
-            # Convert beta to numpy array
-            if isinstance(beta, (list, tuple, np.ndarray)):
-                # Make sure beta is a numpy array
-                beta = np.array(beta)
-            else:
-                beta = np.array([beta] * c)
-
-            # Shape M
-            d = 2**c
-            M = np.zeros((d, c))
-
-            # Compute mixing matrix row by row for the nonzero rows
-            for z in range(1, d - 1):
-
-                # Convert the decimal value z to a binary list of length c
-                z_bin = [int(b) for b in bin(z)[2:].zfill(c)]
-                modz = sum(z_bin)
-
-                M[z, :] = z_bin * (beta**(modz - 1) * (1 - beta)**(c - modz))
-
-            # Remove zero rows
-            M = M[1: d - 1, :]
-
-            # Columns in M should sum up to 1
-            M = M / np.sum(M, axis=0)
-
-        else:
-            raise ValueError(f"Unknown model to compute M: {self.model_class}")
-
+    def computeM(self, alpha=0.5, beta=0.5, gamma=0.5):
+        M = computeM(c=self.c, model_class=self.model_class, alpha=alpha,
+                     beta=beta, gamma=gamma)
         self.M = copy.copy(M)
-
         return M
 
-    def generateM(self, alpha=0.2, beta=0.5):
-        """
-        Generate a mixing matrix M given some distribution parameters
-
-        Parameters
-        ----------
-        alpha : float in [0, 1] or array-like (size=c), optional (default=0.2)
-            Noise degree parameter. Higher values of this parameter usually
-            mean higher label noise.
-            The specific meaning of this parameter depends on the method:
-            - 'supervised': Ignored.
-            - 'noisy': noise probability (i.e. probability that the weak label
-                does not correspond to the true label).
-                If array-like, this probability is class-dependent
-            - 'random_noise': Noise probability (same as 'noisy')
-            - 'random_weak': Weak label probability. It is the probability that
-                the weak label is generated at random.
-                If array-like, this probability is class-dependent.
-            - 'IPL': Missing label probability. It is the probability that the
-                true label is not observed in the weak label.
-                If array-like, this probability is class-dependent.
-            - 'IPL3': Ignored
-            - 'quasi-IPL': Ignored.
-
-        beta : float (non-negative) or array-like, optional (default=0.5)
-            Noise distribution parameter.
-            The specific meaning of this parameter depends on the method:
-            - 'supervised': Ignored.
-            - 'noisy': Ignored
-            - 'random_noise': Concentration parameter. The noisy label
-                probabilities are generated stochastically according to a
-                Dirichlet distribution with parameters beta. According to this:
-                    - beta = 1 is equivalent to a uniform distribution
-                    - beta = inf is equivalent to using option 'noisy': the
-                        class of the noisy label is random.
-                    - beta < 1 implies higher concentration: most noise
-                        probability gets concentrated in a single class. This
-                        may be useful to simulate situations where a class is
-                        usually mixed with another similar clas, but not with
-                        others.
-                If beta is array-like, a different concentration parameter will
-                be used for each class (i.e. for each column of M)
-            - 'random_weak': Concentration parameter of the weak label
-                probability distribution, which is a Dirichlet.
-                    - beta = 1 is equivalent to a uniform distribution
-                    - beta = inf is equivalent to a constant probability over
-                        all weak labels
-                    - beta < 1 implies higher concentration: most probability
-                        mass is concentrated over a few weak labels
-                If beta is array-like, a different concentration parameter will
-                be used for each class (i.e. for each column of M)
-            - 'IPL': Probability that a noisy label from a given class is
-                observed. If array-like, this probability is class-dependent:
-                beta[c] is the probability that, if the true label is not c,
-                the weak label contains c
-            - 'IPL3': Probability that a noisy label from any class is
-                observed. If array-like, this probability is class-dependent:
-                beta[c] is the probability that, if the true label is c, the
-                weak label contains a label from class c' other than c
-            - 'quasi-IPL': .
-
-        Returns
-        -------
-        M : array-like, shape = (n_weak_classes, c)
-        """
-
-        # Just to abbreviate
-        c = self.c
-
-        # Change infinite for a very large number
-        beta = np.nan_to_num(beta)
-        if self.model_class == 'supervised':
-
-            M = np.eye(c)
-
-        elif self.model_class == 'noisy':
-
-            valpha = np.array(alpha)
-            M = (np.eye(c) * (1 - valpha - valpha / (c - 1))
-                 + np.ones((c, c)) * valpha / (c - 1))
-
-        elif self.model_class == 'random_noise':
-            # Diagonal component (no-noise probabilities)
-            # np.array is used just in case beta is a list
-            D = (1 - np.array(alpha)) * np.eye(c)
-
-            # Non-diagonal components
-            # Transforma beta into an np.array (if it isn't it).
-            vbeta = np.array(beta) * np.ones(c)
-            B = np.random.dirichlet(vbeta, c).T
-
-            # Remove diagonal component and rescale
-            # I am using here the fact that the conditional distribution of a
-            # rescaled subvector of a dirichlet is a dirichet with the same
-            # parameters, see
-            # https://math.stackexchange.com/questions/1976544/conditional-
-            # distribution-of-subvector-of-a-dirichlet-random-variable
-            # Conditioning...
-            B = B * (1 - np.eye(c))
-            # Rescaling...
-            B = B / np.sum(B, axis=0)
-            # Rescale by (1-beta), which are the probs of noisy labels
-            B = B @ (np.eye(c) - D)
-
-            # Compute M
-            M = D + B
-
-        elif self.model_class == 'random_weak':
-            # Number or rows. Equal to 2**c to simulate a scenario where all
-            # possible binary label vectors are possible.
-            d = 2**c
-
-            # Supervised component: Identity matrix with size d x c.
-            Ic = np.zeros((d, c))
-            for i in range(c):
-                Ic[2**(c - i - 1), i] = 1
-
-            # Weak component: Random weak label proabilities
-            # Transforma beta into an np.array (if it isn't it).
-            vbeta = np.array(beta) * np.ones(d)
-            B = np.random.dirichlet(vbeta, c).T
-
-            # Averaging supervised and weak components
-            # np.array is used just in case alpha is a list
-            M = (1 - np.array(alpha)) * Ic + np.array(alpha) * B
-
-        elif self.model_class == 'IPL':
-
-            # Shape M
-            d = 2**c
-            M = np.zeros((d, c))
-
-            valpha = np.array(alpha)
-            vbeta = np.array(beta)
-
-            # Compute mixing matrix row by row for the nonzero rows
-            for z in range(0, d):
-
-                # Convert the decimal value z to a binary list of length c
-                z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
-                modz = sum(z_bin)
-
-                M[z, :] = (((1 - valpha) / vbeta)**z_bin
-                           * (valpha / (1 - vbeta))**(1 - z_bin)
-                           * np.prod(vbeta**z_bin)
-                           * np.prod((1 - vbeta)**(1 - z_bin)))
-
-        elif self.model_class == 'IPL3':
-
-            b0 = beta[0]
-            b1 = beta[1]
-            b2 = beta[2]
-
-            M = np.array([
-                [0.0, 0.0, 0.0],
-                [0, 0, (1 - b2)**2],
-                [0, (1 - b1)**2, 0],
-                [0.0, b1 * (1 - b1), b2 * (1 - b2)],
-                [(1 - b0)**2, 0, 0],
-                [b0 * (1 - b0), 0.0, b2 * (1 - b2)],
-                [b0 * (1 - b0), b1 * (1 - b1), 0.0],
-                [b0**2, b1**2, b2**2]])
-
-        elif self.model_class == 'quasi-IPL':
-
-            beta = np.array(beta)
-
-            # Shape M
-            d = 2**c
-            M = np.zeros((d, c))
-
-            # Compute mixing matrix row by row for the nonzero rows
-            for z in range(1, d - 1):
-
-                # Convert the decimal value z to a binary list of length c
-                z_bin = np.array([int(b) for b in bin(z)[2:].zfill(c)])
-                modz = sum(z_bin)
-
-                M[z, :] = z_bin * (beta**(modz - 1) * (1 - beta)**(c - modz))
-
-            # Columns in M should sum up to 1
-            M = M / np.sum(M, axis=0)
-
-        else:
-            raise ValueError(f"Unknown model to compute M: {self.model_class}")
-
-        self.M = copy.copy(M)
-
-        return M
 
     def generateWeak(self, y):
         """
