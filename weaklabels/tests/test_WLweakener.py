@@ -5,7 +5,7 @@ from numpy.testing import assert_equal
 from numpy.testing import assert_array_equal
 from numpy.testing import assert_array_almost_equal
 
-from wlc.WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
+from weaklabels.WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
 
 from sklearn.preprocessing import label_binarize
 

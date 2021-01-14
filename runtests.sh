@@ -1,2 +1,2 @@
 #!/bin/bash
-python -m unittest discover wlc
+python -m unittest discover weaklabels
