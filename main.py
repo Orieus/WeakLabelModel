@@ -19,8 +19,8 @@ from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 
 # My modules
-import wlc.WLclassifier as wlc
-import wlc.WLweakener as wlw
+import weaklabels.WLclassifier as wlc
+import weaklabels.WLweakener as wlw
 
 import utils.keras_models as km
 from utils.data import load_dataset
@@ -72,11 +72,18 @@ def parse_arguments():
                       type=str, help=('Method to generate the mixing matrix M.'
                                       'One of the following: IPL, quasi-IPL, '
                                       'noisy, random_noise, random_weak'))
+    parser.add_option('-w', '--classifier_name', default='LR',
+                      type=str, help=('Classification method between '
+                                      'LR (logistic regression) or FNN (feedforward '
+                                      'neural network)'))
+    parser.add_option('-o', '--optimizer', default='SGD',
+                      type=str, help=('Gradient descent method between '
+                                      'SGD (stochastic gradient descent) or BFGS '))
     return parser.parse_args()
 
 def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                    mixing_matrix,
-                   alpha, beta, path_results):
+                   alpha, beta, path_results, classifier_name, optimizer):
     np.random.seed(seed)
     ############################
     # ## Create a Diary for all the logs and results
@@ -109,14 +116,16 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     y_bin = label_binarize(y, list(range(n_classes)))
 
     # Generate weak labels
-    M = wlw.generateM(n_classes, method=mixing_matrix, alpha=alpha, beta=beta)
-    z = wlw.generateWeak(y, M)
+    WLM = wlw.WLmodel(n_classes, model_class=mixing_matrix)
+    M = WLM.generateM(alpha=alpha, beta=beta)
+    WLM.remove_zero_rows()
+    z = WLM.generateWeak(y)
     # Compute the virtual labels
-    v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo', 'known-M-opt',
-                 'known-M-opt-conv']
+    v_methods = ['binary','quasi-IPL','M-pinv','M-conv','M-opt','M-opt-conv']
+    
     v = {}
     for v_method in v_methods:
-        v[v_method] = wlw.computeVirtual(z, n_classes, method=v_method, M=M)
+        v[v_method] = WLM.virtual_labels(z, method=v_method)
 
     # Convert z to a list of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
@@ -202,8 +211,8 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # Supervised learning
     classifier_dict = {'LR': km.KerasWeakLogisticRegression,
                        'FNN': km.KerasWeakMultilayerPerceptron}
-    optimizer = 'SGD' # SGD or BFGS
-    classifier_name = 'LR' # LR or FNN
+    #optimizer = 'SGD' # SGD or BFGS
+    #classifier_name = 'LR' # LR or FNN
     classifier =  classifier_dict[classifier_name]
     # ############################################
     # Supervised loss with Stochastic Gradient Descent
@@ -251,7 +260,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     #
     # ############################################
     # Known M with pseudoinverse
-    v_method = 'known-M-pseudo'
+    v_method = 'M-pinv'
     tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
@@ -261,8 +270,21 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     tag_list.append(tag)
 
     # ############################################
-    # Known M with new method not convex
-    v_method = 'known-M-opt'
+    # Known M with convexity restriction
+    v_method = 'M-conv'
+    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    title[tag] = '{} {} with {}'.format(classifier_name,
+                                                       v_method,
+                                                       optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras)
+    n_jobs[tag] = 1
+    v_dict[tag] = v[v_method]
+    tag_list.append(tag)
+
+    # ############################################
+    # Known M with new method convex
+    v_method = 'M-opt'
     tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
@@ -275,7 +297,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
     # ############################################
     # Known M with new method convex
-    v_method = 'known-M-opt-conv'
+    v_method = 'M-opt-conv'
     tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
@@ -285,7 +307,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
-
+    
     # ############################################
     # 2. If we assume quasi-IPL M: Training with virtual labels for q_IPL
     #
@@ -363,7 +385,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 # ## MAIN #####################################################################
 ###############################################################################
 def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
-         alpha, beta, path_results):
+         alpha, beta, path_results,classifier_name, optimizer):
 
     dataset_list = datasets.split(',')
     mixing_matrix_list = mixing_matrix.split(',')
@@ -371,7 +393,7 @@ def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
     for dataset in dataset_list:
         for mixing_matrix in mixing_matrix_list:
             run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
-                           mixing_matrix, alpha, beta, path_results)
+                           mixing_matrix, alpha, beta, path_results,classifier_name, optimizer)
 
 if __name__ == '__main__':
     (options, args) = parse_arguments()
