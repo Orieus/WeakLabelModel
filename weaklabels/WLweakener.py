@@ -509,10 +509,11 @@ class WLmodel(object):
             # The list of weak_classes will be inferred from the model_class
             if model_class in ['supervised', 'noisy', 'random_noise']:
                 self.weak_classes = 2**np.arange(c - 1, -1, -1)
-            elif model_class in ['random_weak', 'IPL', 'IPL3']:
+            elif model_class in ['random_weak', 'IPL', 'IPL3','quasi-IPL']:
                 self.weak_classes = np.arange(2**c)
-            elif model_class in ['quasi-IPL']:
-                self.weak_classes = np.arange(1, 2**c - 1)
+            # I introduce this (quasi-IPL' in the one above to be consistent when applying remove_zero_rows   
+            #elif model_class in ['quasi-IPL']: 
+            #    self.weak_classes = np.arange(1, 2**c - 1)
             else:
                 raise ValueError("Unknown model_class: {}".format(model_class))
         elif weak_classes == 'one-hot':
@@ -626,26 +627,26 @@ class WLmodel(object):
         z_count = Counter(z)
 
         # Unconstrained ML estimate.
-        p_est = np.array([z_count[x] for x in self.weak_classes])
-        p_est = p_est / np.sum(p_est)
+        #p_est = np.array([z_count[x] for x in self.weak_classes])
+        #p_est = p_est / np.sum(p_est)
 
         # Projecting p_est onto M
-        p_reg = self.M @ np.linalg.lstsq(self.M, p_est, rcond=None)[0]
+        #p_reg = self.M @ np.linalg.lstsq(self.M, p_est, rcond=None)[0]
 
         # Project p_reg onto the probability simplex. I think this is not
         # required theoretically, but it may be necessary to avoid rounding
         # errors
-        p_reg = (p_reg > 0) * p_reg
-        p_reg = p_reg / np.sum(p_reg)
+        #p_reg = (p_reg > 0) * p_reg
+        #p_reg = p_reg / np.sum(p_reg)
         
         ## Resolution of the problem in eq (32) and (33)
-        #p_est = np.array([z_count[x] for x in self.weak_classes])
-        #eta = cp.Variable(self.c)
-        #problem = cp.Problem(cp.Minimize(- p_est @ cp.log(self.M @ eta)),
-        #         [eta >= 0,
-        #         np.ones(self.c) @ eta == 1])
-        #problem.solve()
-        #p_reg = self.M @ eta.value
+        p_est = np.array([z_count[x] for x in self.weak_classes])
+        v_eta = cp.Variable(self.c)
+        problem = cp.Problem(cp.Minimize(- p_est @ cp.log(self.M @ v_eta)),
+                 [v_eta >= 0,
+                 np.ones(self.c) @ v_eta == 1])
+        problem.solve()
+        p_reg = self.M @ v_eta.value
         return p_reg
 
     def virtual_labels(self, z, method, p=None):
@@ -722,15 +723,15 @@ class WLmodel(object):
 
         elif method == 'M-conv':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, p, optimize=False,
+            v = self.virtual_labels_from_M(z, self.M, optimize=False,
                                            convex=True)
         elif method == 'M-opt':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, p, optimize=True,
+            v = self.virtual_labels_from_M(z, self.M, optimize=True,
                                            convex=False)
         elif method == 'M-opt-conv':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, p, optimize=True,
+            v = self.virtual_labels_from_M(z, self.M, optimize=True,
                                            convex=True)
         else:
             raise ValueError(
