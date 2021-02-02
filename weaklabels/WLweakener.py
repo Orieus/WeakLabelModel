@@ -12,6 +12,59 @@ import cvxpy
 import copy
 
 
+def weak_to_decimal(z):
+    """
+    >>> import numpy as np
+    >>> z = np.array([[ 0.,  0.,  0.,  1.],
+    ...               [ 0.,  0.,  1.,  0.],
+    ...               [ 1.,  0.,  0.,  0.]])
+    >>> weak_to_decimal(z)
+    array([1, 2, 8])
+    """
+    n, n_cat = z.shape
+    p2 = np.array([2**n for n in reversed(range(n_cat))])
+    return np.array(z.dot(p2), dtype=int)
+
+
+def weak_to_index(z, method='supervised'):
+    """ Index position of weak labels in the corresponding mixing matrix
+
+    It returns the row from the corresponding mixing matrix M where the weak
+    label must be. For a supervised method the mixing matrix is a diagonal
+    matrix withthe first row belonging to the first class and the last row
+    belonging to the last class.
+
+    With an Mproper, IPL, quasiIPL methods the mixing matrix is assumed to be
+    2**#classes, where the first row corresponds to a weak labeling with all
+    the labels to zero. The second row corresponds to the first class, and the
+    last row corresponds to all the classes to one.
+
+
+    >>> import numpy as np
+    >>> z = np.array([[ 0.,  0.,  0.,  1.],
+    ...               [ 0.,  0.,  1.,  0.],
+    ...               [ 1.,  0.,  0.,  0.]])
+    >>> weak_to_index(z, method='supervised')
+    array([3, 2, 0])
+    >>> weak_to_index(z, method='Mproper')
+    array([1, 2, 8])
+    >>> z = np.array([[ 0.,  0.,  0.,  0.],
+    ...               [ 0.,  1.,  0.,  0.],
+    ...               [ 1.,  0.,  1.,  1.]])
+    >>> weak_to_index(z, method='Mproper')
+    array([ 0,  4, 11])
+    """
+    c = z.shape[1]
+    if method in ['supervised', 'noisy', 'random_noise']:
+        # FIXME which of both is correct?
+        index = np.argmax(z, axis=1)
+        #index = c - np.argmax(z, axis=1) - 1
+    else:
+        #index = np.array(map(bin_array_to_dec, z.astype(int)))
+        index = weak_to_decimal(z)
+    return index
+
+
 def binarizeWeakLabels(z, c):
     """
     Binarizes the weak labels depending on the method used to generate the weak
