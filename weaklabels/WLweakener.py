@@ -54,13 +54,14 @@ def weak_to_index(z, method='supervised'):
     >>> weak_to_index(z, method='Mproper')
     array([ 0,  4, 11])
     """
-    c = z.shape[1]
+
+    # c = z.shape[1]
     if method in ['supervised', 'noisy', 'random_noise']:
         # FIXME which of both is correct?
         index = np.argmax(z, axis=1)
-        #index = c - np.argmax(z, axis=1) - 1
+        # index = c - np.argmax(z, axis=1) - 1
     else:
-        #index = np.array(map(bin_array_to_dec, z.astype(int)))
+        # index = np.array(map(bin_array_to_dec, z.astype(int)))
         index = weak_to_decimal(z)
     return index
 
@@ -175,21 +176,21 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
     model_class : string, optional (default='supervised')
         Method to compute M. Available options are:
             'supervised': Identity matrix. For a fully labeled case
-            'noisy': For a noisy label case: the true label is observed
-                with probabiltity 1 - beta, otherwise one noisy label is
-                taken at random
-            'random_noise': All values of the mixing matrix are taken at
-                random from a uniform distribution. The matrix is
-                normalized to be left-stochastic
+            'noisy': For a noisy label case: the true label is observed with
+                probabiltity 1 - beta, otherwise one noisy label is taken at
+                random
+            'random_noise': All values of the mixing matrix are taken at random
+                from a uniform distribution. The matrix is normalized to be
+                left-stochastic
             'IPL':  Independent partial labels: the observed labels are
-                independent. The true label is observed with probatility
-                alfa. Each False label is observed with probability beta
-            'IPL3': A generalized version of IPL, but only for c=3 classes
-                and alpha=1: each false label is observed with a different
+                independent. The true label is observed with probatility alpha.
+                Each False label is observed with probability beta
+            'IPL3': A generalized version of IPL, but only for c=3 classes and
+                alpha=1: each false label is observed with a different
                 probability. Parameters alpha, beta and gamma represent the
                 probability of a false label for each column
-            'quasi-IPL': The quasi independent partial label case discussed
-                in the paper
+            'quasi-IPL': The quasi independent partial label case discussed in
+                the paper
 
     Returns
     -------
@@ -477,7 +478,7 @@ def generateM(c, model_class, alpha=0.2, beta=0.5):
         M = M / np.sum(M, axis=0)
 
     else:
-        raise ValueError("Unknown model to compute M: {}".format( model_class))
+        raise ValueError(f"Unknown model to compute M: {model_class}")
 
     return M
 
@@ -562,10 +563,11 @@ class WLmodel(object):
             # The list of weak_classes will be inferred from the model_class
             if model_class in ['supervised', 'noisy', 'random_noise']:
                 self.weak_classes = 2**np.arange(c - 1, -1, -1)
-            elif model_class in ['random_weak', 'IPL', 'IPL3','quasi-IPL']:
+            elif model_class in ['random_weak', 'IPL', 'IPL3', 'quasi-IPL']:
                 self.weak_classes = np.arange(2**c)
-            # I introduce this (quasi-IPL' in the one above to be consistent when applying remove_zero_rows   
-            #elif model_class in ['quasi-IPL']: 
+            # I introduce this (quasi-IPL' in the one above to be consistent
+            # when applying remove_zero_rows
+            # elif model_class in ['quasi-IPL']:
             #    self.weak_classes = np.arange(1, 2**c - 1)
             else:
                 raise ValueError("Unknown model_class: {}".format(model_class))
@@ -581,13 +583,11 @@ class WLmodel(object):
 
         return
 
-
     def generateM(self, alpha=0.2, beta=0.5):
         M = generateM(c=self.c, model_class=self.model_class, alpha=alpha,
                       beta=beta)
         self.M = copy.copy(M)
         return M
-
 
     def loadM(self, M):
         """
@@ -631,7 +631,6 @@ class WLmodel(object):
                      beta=beta, gamma=gamma)
         self.M = copy.copy(M)
         return M
-
 
     def generateWeak(self, y):
         """
@@ -680,24 +679,24 @@ class WLmodel(object):
         z_count = Counter(z)
 
         # Unconstrained ML estimate.
-        #p_est = np.array([z_count[x] for x in self.weak_classes])
-        #p_est = p_est / np.sum(p_est)
+        # p_est = np.array([z_count[x] for x in self.weak_classes])
+        # p_est = p_est / np.sum(p_est)
 
         # Projecting p_est onto M
-        #p_reg = self.M @ np.linalg.lstsq(self.M, p_est, rcond=None)[0]
+        # p_reg = self.M @ np.linalg.lstsq(self.M, p_est, rcond=None)[0]
 
         # Project p_reg onto the probability simplex. I think this is not
         # required theoretically, but it may be necessary to avoid rounding
         # errors
-        #p_reg = (p_reg > 0) * p_reg
-        #p_reg = p_reg / np.sum(p_reg)
-        
-        ## Resolution of the problem in eq (32) and (33)
+        # p_reg = (p_reg > 0) * p_reg
+        # p_reg = p_reg / np.sum(p_reg)
+
+        # Resolution of the problem in eq (32) and (33)
         p_est = np.array([z_count[x] for x in self.weak_classes])
-        v_eta = cp.Variable(self.c)
-        problem = cp.Problem(cp.Minimize(- p_est @ cp.log(self.M @ v_eta)),
-                 [v_eta >= 0,
-                 np.ones(self.c) @ v_eta == 1])
+        v_eta = cvxpy.Variable(self.c)
+        problem = cvxpy.Problem(
+            cvxpy.Minimize(-p_est @ cvxpy.log(self.M @ v_eta)),
+            [v_eta >= 0, np.ones(self.c) @ v_eta == 1])
         problem.solve()
         p_reg = self.M @ v_eta.value
         return p_reg
