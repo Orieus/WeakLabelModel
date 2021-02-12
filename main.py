@@ -327,11 +327,11 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     appended_dfs = []
     for i, tag in enumerate(tag_list):
         print(tag)
-        t_start = time.clock()
+        t_start = time.time()
         Pe_tr[tag], Pe_cv[tag] = evaluateClassif(clf_dict[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
                                                  n_jobs=n_jobs[tag])
-        seconds = time.clock() - t_start
+        seconds = time.time() - t_start
         fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes,
                            n_sim, save=False)
         diary.save_figure(fig)
