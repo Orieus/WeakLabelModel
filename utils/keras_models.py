@@ -31,7 +31,7 @@ def log_loss(y_true, y_pred):
 
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    y_true = -K.cast(y_true,'float32')
+    y_true = K.cast(y_true,'float32')
     EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
     out = -EM_label*K.log(y_pred)
     return K.mean(out, axis=-1)
