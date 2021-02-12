@@ -261,7 +261,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ##################################
     # Eexpectation maximization algorithm (EM)
     tag = '{}_EM_{}'.format(classifier_name, optimizer)
-    title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
+    title[tag] = '{} EM loss with {}'.format(classifier_name, optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
                           optimizer=optimizer, params=params_keras, loss_f=loss, EM=True)
     n_jobs[tag] = 1
@@ -345,6 +345,25 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
         Pe_tr[tag], Pe_cv[tag] = evaluateClassif(clf_dict[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
                                                  n_jobs=n_jobs[tag])
+        print(hist[0].history.keys())
+        fig = plt.figure()
+        plt.plot(hist[0].history['loss'])
+        plt.plot(hist[0].history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        diary.save_figure(fig, filename=tag)
+
+        fig = plt.figure()
+        plt.plot(hist[0].history['acc'])
+        plt.plot(hist[0].history['val_acc'])
+        plt.title('model acc')
+        plt.ylabel('acc')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        diary.save_figure(fig, filename=tag + '2')
+
         seconds = time.time() - t_start
         fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes,
                            n_sim, save=False)
