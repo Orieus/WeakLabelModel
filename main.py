@@ -48,7 +48,7 @@ def parse_arguments():
     # Common parameters for all AL algorithms
     parser.add_option('-m', '--n-simulations', dest='n_sim', default=10,
                       type=int, help='Number of times to run every model.')
-    parser.add_option('-l', '--loss', dest='loss', default='square',
+    parser.add_option('-l', '--loss', dest='loss', default='CE',
                       type=str, help=('Loss function to minimize between '
                                       'square (brier score) or CE (cross '
                                       'entropy)'))
@@ -113,7 +113,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                                 'alpha', alpha, 'beta', beta])
 
     # Convert y into a binary matrix
-    y_bin = label_binarize(y, list(range(n_classes)))
+    y_bin = label_binarize(y, classes = list(range(n_classes)))
 
     # Generate weak labels
     WLM = wlw.WLmodel(n_classes, model_class=mixing_matrix)
@@ -129,6 +129,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
     # Convert z to a list of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
+    z_bin_oh = label_binarize(z, classes=WLM.weak_classes)
     # TODO Add to diary: p = np.sum(weak_labels,0)/np.sum(weak_labels)
 
     #######################################
@@ -202,25 +203,25 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     params = {'rho': rho, 'n_it': n_it, 'loss': loss}
     params_keras = {'n_epoch': n_it, 'random_seed': 0}
     tag_list = []
-
+    classifier_dict = {'LR': km.KerasWeakLogisticRegression,
+                       'FNN': km.KerasWeakMultilayerPerceptron}
     #######################################################################
     # BASELINES:
     # 1. Upper bound: Training with Original labels
     #
     # ###################
     # Supervised learning
-    classifier_dict = {'LR': km.KerasWeakLogisticRegression,
-                       'FNN': km.KerasWeakMultilayerPerceptron}
+
     #optimizer = 'SGD' # SGD or BFGS
     #classifier_name = 'LR' # LR or FNN
     classifier =  classifier_dict[classifier_name]
     # ############################################
     # Supervised loss with Stochastic Gradient Descent
-    tag = '{}-Superv-{}'.format(classifier_name, optimizer)
+    tag = '{}_Superv_{}'.format(classifier_name, optimizer)
     title[tag] = '{} trained with true labels with {}'.format(classifier_name,
                                                               optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = y_bin.astype(float)
     tag_list.append(tag)
@@ -231,11 +232,11 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     #
     # ############################################
     # Training with the weak labels with Stochastic Gradient Descent
-    tag = '{}-Weak-{}'.format(classifier_name, optimizer)
+    tag = '{}_Weak_{}'.format(classifier_name, optimizer)
     title[tag] = '{} trained with weak labels with {}'.format(classifier_name,
                                                               optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = z_bin
     tag_list.append(tag)
@@ -254,6 +255,19 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     #v_dict[tag] = z_bin
     #tag_list.append(tag)
 
+    # ############################################
+    # 4. Competitor: EM algorithm
+    #
+    # ##################################
+    # Eexpectation maximization algorithm (EM)
+    tag = '{}_EM_{}'.format(classifier_name, optimizer)
+    title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, params=params_keras, loss_f=loss, EM=True)
+    n_jobs[tag] = 1
+    v_dict[tag] = z_bin_oh @ M
+    tag_list.append(tag)
+
     #######################################################################
     # OUR PROPOSED METHODS:
     # 1. Upper bound (if we know M): Training with Mproper virtual labels
@@ -261,10 +275,10 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ############################################
     # Known M with pseudoinverse
     v_method = 'M-pinv'
-    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    tag = '{}_{}_{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
@@ -272,12 +286,12 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ############################################
     # Known M with convexity restriction
     v_method = 'M-conv'
-    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    tag = '{}_{}_{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} with {}'.format(classifier_name,
                                                        v_method,
                                                        optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
@@ -285,12 +299,12 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ############################################
     # Known M with new method convex
     v_method = 'M-opt'
-    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    tag = '{}_{}_{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
                                                        optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
@@ -298,12 +312,12 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ############################################
     # Known M with new method convex
     v_method = 'M-opt-conv'
-    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    tag = '{}_{}_{}'.format(classifier_name, v_method, optimizer)
     title[tag] = '{} {} and new method with {}'.format(classifier_name,
                                                        v_method,
                                                        optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
+                          optimizer=optimizer, params=params_keras, loss_f = loss)
     n_jobs[tag] = 1
     v_dict[tag] = v[v_method]
     tag_list.append(tag)
@@ -313,14 +327,14 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     #
     # ############################################
     # Virtual labels assuming quasi-IPL loss with SGD
-    v_method = 'quasi-IPL'
-    tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
-    title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
-    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-                          optimizer=optimizer, params=params_keras)
-    n_jobs[tag] = 1
-    v_dict[tag] = v[v_method]
-    tag_list.append(tag)
+    #v_method = 'quasi-IPL'
+    #tag = '{}-{}-{}'.format(classifier_name, v_method, optimizer)
+    #title[tag] = '{} {} with {}'.format(classifier_name, v_method, optimizer)
+    #clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+    #                      optimizer=optimizer, params=params_keras)
+    #n_jobs[tag] = 1
+    #v_dict[tag] = v[v_method]
+    #tag_list.append(tag)
 
     # ############
     # Evaluation and plot of each model

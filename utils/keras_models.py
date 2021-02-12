@@ -8,24 +8,32 @@
 import numpy as np
 import scipy as sp
 
-import theano
-import theano.tensor as T
+#import theano
+#import theano.tensor as T
 from keras import backend as K
 
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation, Dropout
 from keras.optimizers import SGD, Adam, Nadam
+from keras.callbacks import EarlyStopping
 from functools import partial
 
 from sklearn.base import BaseEstimator
 
-theano.config.exception_verbosity = 'high'
+#theano.config.exception_verbosity = 'high'
 
 
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    out = -y_true*K.log(y_pred)
+    out = -K.cast(y_true,'float32')*K.log(y_pred)
+    return K.mean(out, axis=-1)
+
+def EM_log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    y_true = -K.cast(y_true,'float32')
+    EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
+    out = -EM_label*K.log(y_pred)
     return K.mean(out, axis=-1)
 
 
@@ -77,14 +85,15 @@ def brier_loss(y_true, y_pred):
 # FIXME add the parameter rho to the gradient descent
 class KerasModel(BaseEstimator):
     def __init__(self, input_size, output_size, optimizer='SGD',
-                 batch_size=None, class_weights=None, OSL=False, params={},
-                 random_seed=None):
+                 batch_size=None, class_weights=None, params={},
+                 random_seed=None, loss_f='CE', OSL=False, EM = False):
         self.input_size = input_size
         self.output_size = output_size
         self.batch_size = batch_size
         self.params = params
         self.optimizer = optimizer
         self.OSL = OSL
+        self.EM = EM
         if 'random_seed' in params.keys():
             random_seed = params['random_seed']
         self.random_seed = random_seed
@@ -100,6 +109,19 @@ class KerasModel(BaseEstimator):
         else:
             self.class_weights = class_weights
 
+        if EM is True:
+            loss = EM_log_loss
+        elif loss_f == 'CE':
+            if OSL is True:
+                loss = osl_log_loss
+            else:
+                loss = log_loss
+        elif loss_f == 'Square':
+            if OSL is True:
+                loss = osl_brier_loss
+            else:
+                loss = brier_loss
+        '''
         if OSL is True:
             ## FIXME There is a problem with argmax() and argument keep_dims
             if np.all(self.class_weights):
@@ -115,7 +137,7 @@ class KerasModel(BaseEstimator):
             else:
                 loss = partial(w_brier_loss, class_weights=self.class_weights)
                 loss.__name__ = 'w_brier_loss'
-
+        '''
         # FIXME adjust the parameter rho
         if 'rho' in self.params:
             lr = self.params['rho']
@@ -163,7 +185,7 @@ class KerasModel(BaseEstimator):
         return D
 
     def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
-            epochs=1):
+            epochs=1, validation_split = 0.3):
         """
         The fit function requires both train_x and train_y.
         See 'The selected model' section above for explanation
@@ -189,9 +211,11 @@ class KerasModel(BaseEstimator):
                                    epochs=1, verbose=0)
                 history.append(h)
             return history
-
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=10, restore_best_weights=True)
         return self.model.fit(train_x, train_y, batch_size=batch_size,
-                              epochs=epochs, verbose=0)
+                              epochs=epochs, verbose=0, validation_split=validation_split, callbacks=[es])
+        #return self.model.fit(train_x, train_y, batch_size=batch_size,
+        #                      epochs=epochs, verbose=0)
 
     def predict(self, X, batch_size=None):
         # Compute posterior probability of class 1 for weights w.
