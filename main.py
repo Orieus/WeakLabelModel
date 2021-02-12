@@ -342,7 +342,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     for i, tag in enumerate(tag_list):
         print(tag)
         t_start = time.time()
-        Pe_tr[tag], Pe_cv[tag] = evaluateClassif(clf_dict[tag], X, y,
+        Pe_tr[tag], Pe_cv[tag], hist = evaluateClassif(clf_dict[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
                                                  n_jobs=n_jobs[tag])
         print(hist[0].history.keys())
