@@ -54,7 +54,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
     Pe_cv = [0] * n_sim
 
     ns = X.shape[0]
-    start = time.clock()
+    start = time.time()
     # ## Loop over simulation runs
     for i in range(n_sim):
         # ##############
@@ -83,7 +83,7 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
 
         print(('\tAveraging {0} simulations. Estimated time to finish '
                '{1:0.4f}s.\r').format(n_sim,
-                                      (time.clock() - start)/(i+1)*(n_sim-i)),
+                                      (time.time() - start)/(i+1)*(n_sim-i)),
               end=' ')
         sys.stdout.flush()
 
