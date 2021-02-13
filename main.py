@@ -27,6 +27,8 @@ from utils.data import load_dataset
 from utils.evaluation import evaluateClassif
 from utils.visualization import plot_data, plot_results
 
+import matplotlib.pyplot as plt
+
 from utils.diary import Diary
 
 warnings.filterwarnings("ignore")
@@ -247,13 +249,13 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ##################################
     # Optimistic Superset Learning (OSL)
     ## FIXME There is a problem with argmax() and argument keep_dims
-    #tag = '{}-OSL-{}'.format(classifier_name, optimizer)
-    #title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
-    #clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
-    #                      optimizer=optimizer, OSL=True, params=params_keras)
-    #n_jobs[tag] = 1
-    #v_dict[tag] = z_bin
-    #tag_list.append(tag)
+    tag = '{}_OSL_{}'.format(classifier_name, optimizer)
+    title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
+    clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
+                          optimizer=optimizer, OSL=True, params=params_keras, loss_f=loss)
+    n_jobs[tag] = 1
+    v_dict[tag] = z_bin
+    tag_list.append(tag)
 
     # ############################################
     # 4. Competitor: EM algorithm
@@ -345,7 +347,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
         Pe_tr[tag], Pe_cv[tag], hist = evaluateClassif(clf_dict[tag], X, y,
                                                  v_dict[tag], n_sim=n_sim,
                                                  n_jobs=n_jobs[tag])
-        print(hist[0].history.keys())
+        #print(hist[0].history.keys())
         fig = plt.figure()
         plt.plot(hist[0].history['loss'])
         plt.plot(hist[0].history['val_loss'])

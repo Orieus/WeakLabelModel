@@ -33,9 +33,22 @@ def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     y_true = K.cast(y_true,'float32')
     EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
-    out = -EM_label*K.log(y_pred)
+    out = -K.stop_gradient(EM_label)*K.log(y_pred)
     return K.mean(out, axis=-1)
 
+def OSL_log_loss(y_true, y_pred):
+    # Careful, I had to use a global variable here for the number of classes
+    # for some reason I can not use y_osl.shape[-1] in the reshape function
+    n_classes = y_pred.shape[1]
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    y_osl = K.cast(y_true, K.floatx()) * y_pred
+    y_osl_max = K.max(y_osl, axis=-1)
+    y_osl_max = K.repeat_elements(y_osl_max, n_classes, 0)
+    y_osl_max = K.reshape(y_osl_max, (-1, n_classes))
+    y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
+    y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
+    out = -K.stop_gradient(y_osl) * K.log(y_pred)
+    return K.mean(out, axis=-1)
 
 def w_brier_loss(y_true, y_pred, class_weights):
     """ Computes weighted brier score for the given tensors
@@ -113,7 +126,7 @@ class KerasModel(BaseEstimator):
             loss = EM_log_loss
         elif loss_f == 'CE':
             if OSL is True:
-                loss = osl_log_loss
+                loss = OSL_log_loss
             else:
                 loss = log_loss
         elif loss_f == 'Square':
@@ -199,6 +212,7 @@ class KerasModel(BaseEstimator):
             batch_size = train_x.shape[0]
 
         # TODO try to use the OSL loss instead of iterating over epochs
+        '''
         if self.OSL:
             history = []
             for n in range(epochs):
@@ -211,6 +225,7 @@ class KerasModel(BaseEstimator):
                                    epochs=1, verbose=0)
                 history.append(h)
             return history
+        '''
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=10, restore_best_weights=True)
         return self.model.fit(train_x, train_y, batch_size=batch_size,
                               epochs=epochs, verbose=0, validation_split=validation_split, callbacks=[es])
