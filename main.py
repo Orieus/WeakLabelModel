@@ -109,19 +109,23 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                                                           n_features=nf,
                                                           n_classes=n_classes,
                                                           seed=seed)
+    X_test = X[int(X.shape[0] * 0.7):, :]
+    y_test = y[int(X.shape[0] * 0.7):]
+    X_tr = X[:int(X.shape[0] * 0.7), :]
+    y_tr = y[:int(X.shape[0] * 0.7)]
     diary.add_entry('dataset', ['name', dataset, 'size', n_samples,
                                 'n_features', n_features, 'n_classes',
                                 n_classes, 'mixing_matrix', mixing_matrix,
                                 'alpha', alpha, 'beta', beta])
 
     # Convert y into a binary matrix
-    y_bin = label_binarize(y, classes = list(range(n_classes)))
+    y_bin = label_binarize(y_tr, classes = list(range(n_classes)))
 
     # Generate weak labels
     WLM = wlw.WLmodel(n_classes, model_class=mixing_matrix)
     M = WLM.generateM(alpha=alpha, beta=beta)
     WLM.remove_zero_rows()
-    z = WLM.generateWeak(y)
+    z = WLM.generateWeak(y_tr)
     # Compute the virtual labels
     v_methods = ['binary','quasi-IPL','M-pinv','M-conv','M-opt','M-opt-conv']
     
@@ -175,6 +179,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     ## v = wlw.computeVirtual(z, n_classes, method=mixing_matrix)
 
     # If dimension is >=2, we draw a scatterplot
+    '''
     if nf >= 2:
         fig = plot_data(X, y, save=False, title=dataset)
         diary.save_figure(fig, filename=dataset)
@@ -183,7 +188,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
             fig = plot_data(X, n_classes-np.log(z)-1, save=False, title=dataset)
             diary.save_figure(fig, filename='{}_{}'.format(dataset,
                                                            mixing_matrix))
-
+    '''
 
     ######################
     # ## Select classifier
@@ -198,9 +203,9 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     title = {}
     n_jobs = {}
     v_dict = {}
-    Pe_tr = {}  # training performance
+    Pe_test = {}  # training performance
     Pe_cv = {}  # cross-validation performance
-    Pe_tr_mean = {}
+    Pe_test_mean = {}
     Pe_cv_mean = {}
     params = {'rho': rho, 'n_it': n_it, 'loss': loss}
     params_keras = {'n_epoch': n_it, 'random_seed': 0}
@@ -248,7 +253,6 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     #
     # ##################################
     # Optimistic Superset Learning (OSL)
-    ## FIXME There is a problem with argmax() and argument keep_dims
     tag = '{}_OSL_{}'.format(classifier_name, optimizer)
     title[tag] = '{} OSL loss with {}'.format(classifier_name, optimizer)
     clf_dict[tag] = classifier(input_size=X.shape[1], output_size=n_classes,
@@ -344,9 +348,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     for i, tag in enumerate(tag_list):
         print(tag)
         t_start = time.time()
-        Pe_tr[tag], Pe_cv[tag], hist = evaluateClassif(clf_dict[tag], X, y,
-                                                 v_dict[tag], n_sim=n_sim,
-                                                 n_jobs=n_jobs[tag])
+        Pe_test[tag], Pe_cv[tag], hist = evaluateClassif(clf_dict[tag], X_tr, y_tr,  X_test, y_test, v_dict[tag], n_sim=n_sim, n_jobs=n_jobs[tag])
         #print(hist[0].history.keys())
         fig = plt.figure()
         plt.plot(hist[0].history['loss'])
@@ -367,16 +369,16 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
         diary.save_figure(fig, filename=tag + '2')
 
         seconds = time.time() - t_start
-        fig = plot_results(tag_list[:(i+1)], Pe_tr, Pe_cv, ns, n_classes,
+        fig = plot_results(tag_list[:(i+1)], Pe_test, Pe_cv, ns, n_classes,
                            n_sim, save=False)
         diary.save_figure(fig)
 
         rows = [[seconds, tag, title[tag], n_jobs[tag], loss,
                  j, tr_l, cv_l]
-                    for j, (tr_l, cv_l) in enumerate(zip(Pe_tr[tag], Pe_cv[tag]))]
+                    for j, (tr_l, cv_l) in enumerate(zip(Pe_test[tag], Pe_cv[tag]))]
         df_aux = pd.DataFrame(rows, columns=['seconds', 'tag', 'title',
                                              'jobs', 'loss', 'sim',
-                                             'loss_train', 'loss_val'])
+                                             'loss_test', 'loss_val'])
         appended_dfs.append(df_aux)
 
     df = pd.concat(appended_dfs, axis=0, ignore_index=True)
@@ -385,11 +387,11 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # ############
     # Print results.
     for tag in tag_list:
-        Pe_tr_mean[tag] = np.mean(Pe_tr[tag])
+        Pe_test_mean[tag] = np.mean(Pe_test[tag])
         Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
 
         print(title[tag])
-        print('* Average train error = {0}'.format(Pe_tr_mean[tag]))
+        print('* Average train error = {0}'.format(Pe_test_mean[tag]))
         print('* Average cv error = {0}'.format(Pe_cv_mean[tag]))
 
     # Plot decision boundaries.

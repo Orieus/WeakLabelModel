@@ -7,7 +7,7 @@ import sklearn.model_selection as skcv
 from sklearn.utils import shuffle
 
 
-def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
+def evaluateClassif(classif, X, y, X_test, y_test,  v=None, n_sim=1, n_jobs=1):
     """Evaluates a classifier using cross-validation
 
     Parameters
@@ -50,11 +50,12 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         v = y
 
     # ## Initialize aggregate results
-    Pe_tr = [0] * n_sim
+    Pe_test = [0] * n_sim
     Pe_cv = [0] * n_sim
     historia = []
 
     ns = X.shape[0]
+    test_ns = X_test.shape[0]
     start = time.time()
     # ## Loop over simulation runs
     for i in range(n_sim):
@@ -75,12 +76,12 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         # Ground truth evaluation:
         #   Training with the given virtual labels (by default true labels)
         hist = classif.fit(X, v)
-        f = classif.predict_proba(X)
+        f = classif.predict_proba(X_test)
 
         # Then, we evaluate this classifier with all true labels
         # Note that training and test samples are being used in this error rate
         d = np.argmax(f, axis=1)
-        Pe_tr[i] = float(np.count_nonzero(y != d)) / ns
+        Pe_test[i] = float(np.count_nonzero(y_test != d)) / test_ns
         historia.append(hist)
 
         print(('\tAveraging {0} simulations. Estimated time to finish '
@@ -95,4 +96,4 @@ def evaluateClassif(classif, X, y, v=None, n_sim=1, n_jobs=1):
         print(("q[:5] = {}".format(preds[:5])))
         print(("v[:5] = \n{}".format(v_shuff[:5])))
     print('')
-    return Pe_tr, Pe_cv, historia
+    return Pe_test, Pe_cv, historia

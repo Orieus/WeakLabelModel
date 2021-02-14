@@ -27,14 +27,14 @@ from sklearn.base import BaseEstimator
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     out = -K.cast(y_true,'float32')*K.log(y_pred)
-    return K.mean(out, axis=-1)
+    return K.sum(out, axis=-1)
 
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     y_true = K.cast(y_true,'float32')
     EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
     out = -K.stop_gradient(EM_label)*K.log(y_pred)
-    return K.mean(out, axis=-1)
+    return K.sum(out, axis=-1)
 
 def OSL_log_loss(y_true, y_pred):
     # Careful, I had to use a global variable here for the number of classes
@@ -48,8 +48,36 @@ def OSL_log_loss(y_true, y_pred):
     y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
     y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
     out = -K.stop_gradient(y_osl) * K.log(y_pred)
-    return K.mean(out, axis=-1)
+    return K.sum(out, axis=-1)
 
+
+def brier_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    out = K.square(K.cast(y_true,'float32')-y_pred)
+    return K.sum(out, axis=-1)
+
+def EM_brier_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    y_true = K.cast(y_true,'float32')
+    EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
+    out = K.square(K.stop_gradient(EM_label) - y_pred)
+    return K.sum(out, axis=-1)
+
+def OSL_brier_loss(y_true, y_pred):
+    # Careful, I had to use a global variable here for the number of classes
+    # for some reason I can not use y_osl.shape[-1] in the reshape function
+    n_classes = y_pred.shape[1]
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    y_osl = K.cast(y_true, K.floatx()) * y_pred
+    y_osl_max = K.max(y_osl, axis=-1)
+    y_osl_max = K.repeat_elements(y_osl_max, n_classes, 0)
+    y_osl_max = K.reshape(y_osl_max, (-1, n_classes))
+    y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
+    y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
+    out = K.square(K.stop_gradient(y_osl) - y_pred)
+    return K.sum(out, axis=-1)
+
+'''
 def w_brier_loss(y_true, y_pred, class_weights):
     """ Computes weighted brier score for the given tensors
 
@@ -93,7 +121,7 @@ def brier_loss(y_true, y_pred):
             return bs/N
     """
     return K.mean(K.sum(K.square(y_pred - K.cast(y_true, K.floatx())), axis=1))
-
+'''
 
 # FIXME add the parameter rho to the gradient descent
 class KerasModel(BaseEstimator):
@@ -124,14 +152,18 @@ class KerasModel(BaseEstimator):
 
         if EM is True:
             loss = EM_log_loss
-        elif loss_f == 'CE':
-            if OSL is True:
+        if loss_f == 'CE':
+            if EM is True:
+                loss = EM_log_loss
+            elif OSL is True:
                 loss = OSL_log_loss
             else:
                 loss = log_loss
-        elif loss_f == 'Square':
+        elif loss_f == 'square':
+            if EM is True:
+                loss = EM_brier_loss
             if OSL is True:
-                loss = osl_brier_loss
+                loss = OSL_brier_loss
             else:
                 loss = brier_loss
         '''
