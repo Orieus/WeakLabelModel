@@ -5,9 +5,10 @@ import time
 import numpy as np
 import sklearn.model_selection as skcv
 from sklearn.utils import shuffle
+from sklearn.model_selection import KFold
 
 
-def evaluateClassif(classif, X, y, X_test, y_test,  v=None, n_sim=1, n_jobs=1):
+def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
     """Evaluates a classifier using cross-validation
 
     Parameters
@@ -50,12 +51,12 @@ def evaluateClassif(classif, X, y, X_test, y_test,  v=None, n_sim=1, n_jobs=1):
         v = y
 
     # ## Initialize aggregate results
-    Pe_test = [0] * n_sim
-    Pe_cv = [0] * n_sim
+    Pe_test = [0] * n_sim * n_folds
+    #Pe_cv = [0] * n_sim * n_folds
     historia = []
 
     ns = X.shape[0]
-    test_ns = X_test.shape[0]
+    #test_ns = X_test.shape[0]
     start = time.time()
     # ## Loop over simulation runs
     for i in range(n_sim):
@@ -64,36 +65,36 @@ def evaluateClassif(classif, X, y, X_test, y_test,  v=None, n_sim=1, n_jobs=1):
         # First, we compute leave-one-out predictions
         n_folds = min(10, ns)
 
-        X_shuff, v_shuff, y_shuff = shuffle(X, v, y, random_state=i)
-        # FIXME n_jobs can not be >1 because classif can not be serialized
-        preds = skcv.cross_val_predict(classif, X_shuff, v_shuff, cv=n_folds,
-                                       verbose=0, n_jobs=n_jobs)
+        kf = KFold(n_splits=n_folds, shuffle=True, random_state=i)
+        kf.get_n_splits(X)
+        for train_index, test_index in kf.split(X):
+            print("TRAIN:", train_index, "TEST:", test_index)
+            X_train, X_test = X[train_index], X[test_index]
+            v_train, v_test = v[train_index], v[test_index]
+            y_train, y_test = y[train_index], y[test_index]
 
-        # Estimate error rates:s
-        Pe_cv[i] = float(np.count_nonzero(y_shuff != preds)) / ns
+            # ########################
+            # Ground truth evaluation:
+            #   Training with the given virtual labels (by default true labels)
+            hist = classif.fit(X_train, v_train)
+            probas = classif.predict_proba(X_test)
 
-        # ########################
-        # Ground truth evaluation:
-        #   Training with the given virtual labels (by default true labels)
-        hist = classif.fit(X, v)
-        f = classif.predict_proba(X_test)
+            # Then, we evaluate this classifier with all true labels
+            # Note that training and test samples are being used in this error rate
+            predictions = np.argmax(probas, axis=1)
+            Pe_test[i] = np.mean(y_test != predictions)
+            historia.append(hist)
 
-        # Then, we evaluate this classifier with all true labels
-        # Note that training and test samples are being used in this error rate
-        d = np.argmax(f, axis=1)
-        Pe_test[i] = float(np.count_nonzero(y_test != d)) / test_ns
-        historia.append(hist)
-
-        print(('\tAveraging {0} simulations. Estimated time to finish '
+    print(('\tAveraging {0} simulations. Estimated time to finish '
                '{1:0.4f}s.\r').format(n_sim,
                                       (time.time() - start)/(i+1)*(n_sim-i)),
               end=' ')
-        sys.stdout.flush()
+    sys.stdout.flush()
 
     DEBUG = True
     if DEBUG:
-        print(("y[:5] = {}".format(y_shuff[:5])))
-        print(("q[:5] = {}".format(preds[:5])))
-        print(("v[:5] = \n{}".format(v_shuff[:5])))
+        print(("y[:5] = {}".format(y_test[:5])))
+        print(("q[:5] = {}".format(predictions[:5])))
+        print(("v[:5] = \n{}".format(v_test[:5])))
     print('')
-    return Pe_test, Pe_cv, historia
+    return Pe_test, historia

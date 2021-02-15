@@ -98,7 +98,7 @@ def plot_data_predictions(fig, x, y, Z, MX1, MX2, x_predict=None, notes=None,
     ax.legend(loc=loc)
 
 
-def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim, loc='best',
+def plot_results(tag_list, Pe_tr, ns, n_classes, n_sim, loc='best',
                  save=True):
     # Config plots.
     font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
@@ -108,10 +108,10 @@ def plot_results(tag_list, Pe_tr, Pe_cv, ns, n_classes, n_sim, loc='best',
     fig = newfig('error_rate')
     ax = fig.add_subplot(111)
     for i, tag in enumerate(tag_list):
-        ax.scatter([i + 1]*n_sim, Pe_tr[tag], c='white', edgecolors='black',
+        ax.scatter([i + 1]*n_sim*5, Pe_tr[tag], c='white', edgecolors='black',
                    s=100, alpha=.8, label='training')
-        ax.scatter([i + 1]*n_sim, Pe_cv[tag], c='black', edgecolors='black',
-                   s=30, alpha=.8, label='validation')
+        #ax.scatter([i + 1]*n_sim*5, Pe_cv[tag], c='black', edgecolors='black',
+        #           s=30, alpha=.8, label='validation')
 
     ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
                  n_classes, n_sim))
