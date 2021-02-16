@@ -121,6 +121,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     # Generate weak labels
     WLM = wlw.WLmodel(n_classes, model_class=mixing_matrix)
     M = WLM.generateM(alpha=alpha, beta=beta)
+    full_weak_clasees = WLM.weak_classes
     WLM.remove_zero_rows()
     z = WLM.generateWeak(y)
     # Compute the virtual labels
@@ -132,7 +133,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
     # Convert z to a list of binary lists (this is for the OSL alg)
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
-    z_bin_oh = label_binarize(z, classes=WLM.weak_classes)
+    z_bin_oh = label_binarize(z, classes = full_weak_clasees)
     # TODO Add to diary: p = np.sum(weak_labels,0)/np.sum(weak_labels)
 
     #######################################

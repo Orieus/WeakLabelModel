@@ -50,12 +50,15 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
     if v is None:
         v = y
 
+    ns = X.shape[0]
+    n_folds = min(n_folds, ns)
+
     # ## Initialize aggregate results
     Pe_test = [0] * n_sim * n_folds
     #Pe_cv = [0] * n_sim * n_folds
     historia = []
 
-    ns = X.shape[0]
+
     #test_ns = X_test.shape[0]
     start = time.time()
     # ## Loop over simulation runs
@@ -63,12 +66,12 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
         # ##############
         # Self evaluation.
         # First, we compute leave-one-out predictions
-        n_folds = min(10, ns)
+
 
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=i)
         kf.get_n_splits(X)
-        for train_index, test_index in kf.split(X):
-            print("TRAIN:", train_index, "TEST:", test_index)
+        for j,(train_index, test_index) in enumerate(kf.split(X)):
+            #print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = X[train_index], X[test_index]
             v_train, v_test = v[train_index], v[test_index]
             y_train, y_test = y[train_index], y[test_index]
@@ -82,7 +85,7 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
             # Then, we evaluate this classifier with all true labels
             # Note that training and test samples are being used in this error rate
             predictions = np.argmax(probas, axis=1)
-            Pe_test[i] = np.mean(y_test != predictions)
+            Pe_test[i * kf.get_n_splits(X) + j] = np.mean(y_test != predictions)
             historia.append(hist)
 
     print(('\tAveraging {0} simulations. Estimated time to finish '
