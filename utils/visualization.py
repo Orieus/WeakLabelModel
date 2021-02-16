@@ -98,7 +98,7 @@ def plot_data_predictions(fig, x, y, Z, MX1, MX2, x_predict=None, notes=None,
     ax.legend(loc=loc)
 
 
-def plot_results(tag_list, Pe_tr, ns, n_classes, n_sim, loc='best',
+def plot_results(tag_list, Pe_tr, ns, n_classes, n_sim, n_folds ,loc='best',
                  save=True):
     # Config plots.
     font = {'family': 'Verdana', 'weight': 'regular', 'size': 10}
@@ -108,17 +108,17 @@ def plot_results(tag_list, Pe_tr, ns, n_classes, n_sim, loc='best',
     fig = newfig('error_rate')
     ax = fig.add_subplot(111)
     for i, tag in enumerate(tag_list):
-        ax.scatter([i + 1]*n_sim*5, Pe_tr[tag], c='white', edgecolors='black',
+        ax.scatter([i + 1]*n_sim*n_folds, Pe_tr[tag], c='white', edgecolors='black',
                    s=100, alpha=.8, label='training')
         #ax.scatter([i + 1]*n_sim*5, Pe_cv[tag], c='black', edgecolors='black',
         #           s=30, alpha=.8, label='validation')
 
     ax.set_title('Error rate, samples={}, classes={}, iterations={}'.format(ns,
-                 n_classes, n_sim))
+                 n_classes, n_sim*n_folds))
     ax.set_xticks(list(range(1, 1 + len(tag_list))))
     ax.set_xticklabels(tag_list, rotation=45, ha='right')
     ax.set_ylim([-0.01, 1.01])
-    ax.legend(['training', 'validation'], loc=loc)
+    ax.legend(['testing'], loc=loc)
     ax.grid(True)
     if save:
         savefig(fig)

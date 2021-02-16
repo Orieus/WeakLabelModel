@@ -55,6 +55,7 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
 
     # ## Initialize aggregate results
     Pe_test = [0] * n_sim * n_folds
+
     #Pe_cv = [0] * n_sim * n_folds
     historia = []
 
@@ -85,7 +86,7 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
             # Then, we evaluate this classifier with all true labels
             # Note that training and test samples are being used in this error rate
             predictions = np.argmax(probas, axis=1)
-            Pe_test[i * kf.get_n_splits(X) + j] = np.mean(y_test != predictions)
+            Pe_test[i * n_folds + j] = np.mean(y_test != predictions)
             historia.append(hist)
 
     print(('\tAveraging {0} simulations. Estimated time to finish '

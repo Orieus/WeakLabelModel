@@ -74,18 +74,20 @@ def parse_arguments():
                       type=str, help=('Method to generate the mixing matrix M.'
                                       'One of the following: IPL, quasi-IPL, '
                                       'noisy, random_noise, random_weak'))
-    parser.add_option('-w', '--classifier_name', default='LR',
+    parser.add_option('-w', '--classifier_name', default='LR', dest='classifier_name',
                       type=str, help=('Classification method between '
                                       'LR (logistic regression) or FNN (feedforward '
                                       'neural network)'))
-    parser.add_option('-o', '--optimizer', default='SGD',
+    parser.add_option('-o', '--optimizer', default='SGD',dest='optimizer',
                       type=str, help=('Gradient descent method between '
                                       'SGD (stochastic gradient descent) or BFGS '))
+    parser.add_option('-v', '--nfolds', default=5, dest ='n_folds',
+                      type=int, help=('Number of folds to train' ))
     return parser.parse_args()
 
 def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
                    mixing_matrix,
-                   alpha, beta, path_results, classifier_name, optimizer):
+                   alpha, beta, path_results, classifier_name, optimizer, n_folds):
     np.random.seed(seed)
     ############################
     # ## Create a Diary for all the logs and results
@@ -346,7 +348,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     for i, tag in enumerate(tag_list):
         print(tag)
         t_start = time.time()
-        Pe_test[tag],  hist = evaluateClassif(clf_dict[tag], X, y, v_dict[tag], n_sim=n_sim, n_jobs=n_jobs[tag])
+        Pe_test[tag], hist = evaluateClassif(clf_dict[tag], X, y, v_dict[tag], n_sim=n_sim, n_jobs=n_jobs[tag], n_folds = n_folds)
         #print(hist[0].history.keys())
         fig = plt.figure()
         plt.plot(hist[0].history['loss'])
@@ -368,15 +370,15 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 
         seconds = time.time() - t_start
         fig = plot_results(tag_list[:(i+1)], Pe_test, ns, n_classes,
-                           n_sim, save=False)
+                           n_sim,n_folds, save=False)
         diary.save_figure(fig)
 
         rows = [[seconds, tag, title[tag], n_jobs[tag], loss,
-                 j, tr_l, cv_l]
-                    for j, (tr_l, cv_l) in enumerate(zip(Pe_test[tag], Pe_test[tag]))]
+                 j, tr_l ]
+                    for j, tr_l in enumerate(Pe_test[tag])]
         df_aux = pd.DataFrame(rows, columns=['seconds', 'tag', 'title',
                                              'jobs', 'loss', 'sim',
-                                             'loss_test', 'loss_val'])
+                                             'loss_test'])
         appended_dfs.append(df_aux)
 
     df = pd.concat(appended_dfs, axis=0, ignore_index=True)
@@ -420,7 +422,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
 # ## MAIN #####################################################################
 ###############################################################################
 def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
-         alpha, beta, path_results,classifier_name, optimizer):
+         alpha, beta, path_results,classifier_name, optimizer,n_folds):
 
     dataset_list = datasets.split(',')
     mixing_matrix_list = mixing_matrix.split(',')
@@ -428,7 +430,7 @@ def main(datasets, ns, nf, n_classes, n_sim, loss, rho, n_it, mixing_matrix,
     for dataset in dataset_list:
         for mixing_matrix in mixing_matrix_list:
             run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
-                           mixing_matrix, alpha, beta, path_results,classifier_name, optimizer)
+                           mixing_matrix, alpha, beta, path_results,classifier_name, optimizer,n_folds)
 
 if __name__ == '__main__':
     (options, args) = parse_arguments()
