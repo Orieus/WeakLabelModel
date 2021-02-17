@@ -78,7 +78,7 @@ def parse_arguments():
                       type=str, help=('Classification method between '
                                       'LR (logistic regression) or FNN (feedforward '
                                       'neural network)'))
-    parser.add_option('-o', '--optimizer', default='SGD',dest='optimizer',
+    parser.add_option('-o', '--optimizer', default='Adam',dest='optimizer',
                       type=str, help=('Gradient descent method between '
                                       'SGD (stochastic gradient descent) or BFGS '))
     parser.add_option('-v', '--nfolds', default=5, dest ='n_folds',
@@ -137,6 +137,13 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     z_bin = wlw.binarizeWeakLabels(z, n_classes)
     z_bin_oh = label_binarize(z, classes = full_weak_clasees)
     # TODO Add to diary: p = np.sum(weak_labels,0)/np.sum(weak_labels)
+
+    np.savetxt(os.path.join(diary.path, 'M.txt'), WLM.M, delimiter=",", fmt='%.5f')
+    np.savetxt(os.path.join(diary.path, 'p.txt'), WLM.estimate_wl_priors(z)[0], delimiter=",", fmt='%.5f')
+    np.savetxt(os.path.join(diary.path, 'true_p.txt'), np.sum(z_bin_oh,axis = 0)/np.sum(z_bin_oh), delimiter=",", fmt='%.5f')
+    np.savetxt(os.path.join(diary.path, 'true_eta.txt'), np.sum(y_bin,axis = 0)/np.sum(y_bin), delimiter=",", fmt='%.5f')
+    np.savetxt(os.path.join(diary.path, 'eta.txt'), WLM.estimate_wl_priors(z)[1], delimiter=",", fmt='%.5f')
+
 
     #######################################
     # Explanation of the different labels
@@ -204,9 +211,9 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     n_jobs = {}
     v_dict = {}
     Pe_test = {}  # training performance
-    Pe_cv = {}  # cross-validation performance
+    CE_test = {}  # cross-validation performance
     Pe_test_mean = {}
-    Pe_cv_mean = {}
+    CE_test_mean = {}
     params = {'rho': rho, 'n_it': n_it, 'loss': loss}
     params_keras = {'n_epoch': n_it, 'random_seed': 0}
     tag_list = []
@@ -348,7 +355,7 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
     for i, tag in enumerate(tag_list):
         print(tag)
         t_start = time.time()
-        Pe_test[tag], hist = evaluateClassif(clf_dict[tag], X, y, v_dict[tag], n_sim=n_sim, n_jobs=n_jobs[tag], n_folds = n_folds)
+        Pe_test[tag], CE_test[tag], hist = evaluateClassif(clf_dict[tag], X, y, v_dict[tag], n_sim=n_sim, n_jobs=n_jobs[tag], n_folds = n_folds)
         #print(hist[0].history.keys())
         fig = plt.figure()
         plt.plot(hist[0].history['loss'])
@@ -374,25 +381,27 @@ def run_experiment(dataset, ns, nf, n_classes, n_sim, loss, rho, n_it,
         diary.save_figure(fig)
 
         rows = [[seconds, tag, title[tag], n_jobs[tag], loss,
-                 j, tr_l ]
-                    for j, tr_l in enumerate(Pe_test[tag])]
+                 j, tr_l, ce_l ]
+                    for j, (tr_l,ce_l) in enumerate(zip(Pe_test[tag],CE_test[tag]))]
         df_aux = pd.DataFrame(rows, columns=['seconds', 'tag', 'title',
                                              'jobs', 'loss', 'sim',
-                                             'loss_test'])
+                                             'loss_test', 'ce_loss_test'])
         appended_dfs.append(df_aux)
 
     df = pd.concat(appended_dfs, axis=0, ignore_index=True)
     df.to_csv(os.path.join(diary.path, 'pd_df_results.csv'))
 
+
+
     # ############
     # Print results.
     for tag in tag_list:
         Pe_test_mean[tag] = np.mean(Pe_test[tag])
-        #Pe_cv_mean[tag] = np.mean(Pe_cv[tag])
+        CE_test_mean[tag] = np.mean(CE_test[tag])
 
         print(title[tag])
         print('* Average train error = {0}'.format(Pe_test_mean[tag]))
-        #print('* Average cv error = {0}'.format(Pe_cv_mean[tag]))
+        print('* Average cv error = {0}'.format(CE_test_mean[tag]))
 
     # Plot decision boundaries.
     # Plotting decision regions

@@ -699,7 +699,7 @@ class WLmodel(object):
             [v_eta >= 0, np.ones(self.c) @ v_eta == 1])
         problem.solve()
         p_reg = self.M @ v_eta.value
-        return p_reg
+        return p_reg, v_eta.value
 
     def virtual_labels(self, z, method, p=None):
         """

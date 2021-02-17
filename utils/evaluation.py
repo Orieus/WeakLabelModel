@@ -2,6 +2,7 @@
 import sys
 import time
 
+import keras
 import numpy as np
 import sklearn.model_selection as skcv
 from sklearn.utils import shuffle
@@ -55,6 +56,7 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
 
     # ## Initialize aggregate results
     Pe_test = [0] * n_sim * n_folds
+    CE_test = [0] * n_sim * n_folds
 
     #Pe_cv = [0] * n_sim * n_folds
     historia = []
@@ -87,6 +89,8 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
             # Note that training and test samples are being used in this error rate
             predictions = np.argmax(probas, axis=1)
             Pe_test[i * n_folds + j] = np.mean(y_test != predictions)
+            scce = keras.losses.SparseCategoricalCrossentropy()
+            CE_test[i * n_folds + j] = scce(y_test, probas).numpy()
             historia.append(hist)
 
     print(('\tAveraging {0} simulations. Estimated time to finish '
@@ -101,4 +105,4 @@ def evaluateClassif(classif, X, y,  v=None, n_sim=1, n_jobs=1, n_folds = 5):
         print(("q[:5] = {}".format(predictions[:5])))
         print(("v[:5] = \n{}".format(v_test[:5])))
     print('')
-    return Pe_test, historia
+    return Pe_test,CE_test, historia
