@@ -258,7 +258,8 @@ class KerasModel(BaseEstimator):
                 history.append(h)
             return history
         '''
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=10, restore_best_weights=True)
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=20, restore_best_weights=True)
+        #es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=10, restore_best_weights=True)
         return self.model.fit(train_x, train_y, batch_size=batch_size,
                               epochs=epochs, verbose=0, validation_split=validation_split, callbacks=[es])
         #return self.model.fit(train_x, train_y, batch_size=batch_size,
@@ -305,9 +306,11 @@ class KerasWeakLogisticRegression(KerasModel):
 class KerasWeakMultilayerPerceptron(KerasModel):
     def create_model(self, input_size, output_size):
         model = Sequential()
-        model.add(Dense(200, input_shape=(input_size,), kernel_initializer='glorot_uniform'))
+        #model.add(Dense(200, input_shape=(input_size,), kernel_initializer='glorot_uniform'))
+        model.add(Dense(50, input_shape=(input_size,), kernel_initializer='glorot_uniform'))
         model.add(Activation('relu'))
-        model.add(Dense(200, kernel_initializer='glorot_uniform'))
+        model.add(Dense(20, kernel_initializer='glorot_uniform'))
+        #model.add(Dense(200, kernel_initializer='glorot_uniform'))
         model.add(Activation('relu'))
         model.add(Dropout(0.5))
         model.add(Dense(output_size))
