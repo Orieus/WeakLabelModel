@@ -19,7 +19,7 @@ from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 
 # My modules
-import weaklabels.WLclassifier as wlc
+#import weaklabels.WLclassifier as wlc
 import weaklabels.WLweakener as wlw
 
 import utils.keras_models as km
