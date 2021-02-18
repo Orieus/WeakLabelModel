@@ -27,14 +27,14 @@ from sklearn.base import BaseEstimator
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     out = -K.cast(y_true,'float32')*K.log(y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     y_true = K.cast(y_true,'float32')
     EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
     out = -K.stop_gradient(EM_label)*K.log(y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 def OSL_log_loss(y_true, y_pred):
     # Careful, I had to use a global variable here for the number of classes
@@ -48,20 +48,20 @@ def OSL_log_loss(y_true, y_pred):
     y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
     y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
     out = -K.stop_gradient(y_osl) * K.log(y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 
 def brier_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     out = K.square(K.cast(y_true,'float32')-y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 def EM_brier_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     y_true = K.cast(y_true,'float32')
     EM_label = (y_pred*y_true)/K.sum(y_pred*y_true,axis=1,keepdims=True)
     out = K.square(K.stop_gradient(EM_label) - y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 def OSL_brier_loss(y_true, y_pred):
     # Careful, I had to use a global variable here for the number of classes
@@ -75,7 +75,7 @@ def OSL_brier_loss(y_true, y_pred):
     y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
     y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
     out = K.square(K.stop_gradient(y_osl) - y_pred)
-    return K.sum(out, axis=-1)
+    return K.mean(K.sum(out, axis=-1))
 
 '''
 def w_brier_loss(y_true, y_pred, class_weights):
