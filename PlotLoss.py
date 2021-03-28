@@ -6,14 +6,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-import ipdb
-
 # A constant for the smallest positive real.
 EPS = np.nextafter(0, 1)
 
 
 def compute_loss(q, eta, loss_name, B=None, M=None, Z=None):
-
     ''' Computes a mean value of the conditional loss l(eta, q), where eta is
         the true posterior and q is an estimate.
 
@@ -82,8 +79,8 @@ def compute_simplex(loss_name, V, U, M, Z, eta, N=300):
 
             # ## Compute class probabilities corresponding to delta[i], p[j]
             q2 = p[j]
-            q1 = (1 - q2 + delta[i])/2
-            q0 = (1 - q2 - delta[i])/2
+            q1 = (1 - q2 + delta[i]) / 2
+            q0 = (1 - q2 - delta[i]) / 2
             q = np.array([q0, q1, q2])
 
             if np.all(q >= 0):
@@ -177,7 +174,7 @@ def main():
 
     for i, loss_name in enumerate(loss_names):
 
-        print loss_name
+        print(loss_name)
 
         # ###################
         # ## Loss computation

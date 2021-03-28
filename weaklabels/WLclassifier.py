@@ -8,17 +8,40 @@
 
 import numpy as np
 import scipy as sp
-import ipdb
 import warnings
 
 
 class WeakLogisticRegression(object):
+    """
+    A classifier object for multiclass logistic regression from weak labels.
+    """
 
     def __init__(self, n_classes=2, method="VLL", optimizer='GD',
                  params={}, sound='off'):
-
         """
-        Only a name is needed when the object is created
+        Initializes a classifier object
+
+        Parameters
+        ----------
+        n_classes : int, optional (default=2)
+            Number of classes
+        method : str, optional (default=VLL)
+            Available options are
+            - VLL: Learning based on virtual labels
+            - OSL: Optimistic Superset Learning (a decision-directed method)
+            - EM: Expectation maximization
+        optimizer : str, optional (default='GD')
+            Optimization method. If 'GD', a self implementation of stochastic
+            gradient descent is used. Otherwise, a method from scipy.optimize
+            is used.
+        params : dict, optinal (default={})
+            Parameters for the optimization algorithms.
+            Available parameters are:
+            - n_it: Number of iterations
+            - rho: learning step
+            - alpha: regularization constant
+            - loss: loss function (CE: cross entropy, square: square error)
+            -
         """
 
         self.sound = sound
@@ -30,8 +53,6 @@ class WeakLogisticRegression(object):
 
         # Set default value of parameter 'alpha' if it does not exist
         if self.method == "VLL" and 'alpha' not in self.params:
-            self.params['alpha'] = 0
-        if self.method == "Mproper" and 'alpha' not in self.params:
             self.params['alpha'] = 0
 
         # This is for backwards compatibility
@@ -96,7 +117,6 @@ class WeakLogisticRegression(object):
         return v_bin
 
     def hardmax(self, Z):
-
         """
         Transform each row in array Z into another row with zeroes in the
         non-maximum values and 1/nmax on the maximum values, where nmax is the
@@ -107,7 +127,7 @@ class WeakLogisticRegression(object):
 
         # In case more than one value is equal to the maximum, the output
         # of hardmax is nonzero for all of them, but normalized
-        D = D/np.sum(D, axis=1, keepdims=True)
+        D = D / np.sum(D, axis=1, keepdims=True)
 
         return D
 
@@ -145,7 +165,7 @@ class WeakLogisticRegression(object):
         p = np.exp(logp)
 
         if self.method == 'OSL':
-            D = self.hardmax(T*p)
+            D = self.hardmax(T * p)
             L = np.sum((D - p)**2) / 2
 
         else:
@@ -194,27 +214,89 @@ class WeakLogisticRegression(object):
 
         if self.method == 'OSL':
             p = np.exp(logp)
-            D = self.hardmax(T*p)
-            L = -np.sum(D*logp)
+            D = self.hardmax(T * p)
+            L = -np.sum(D * logp)
 
         elif self.method == 'EM':
             M = self.params['M']
             p = np.exp(logp)
             Q = p * M[T, :].T
             Q = Q / np.sum(Q, axis=0)
-            L = -np.sum(Q*logp)
+            L = -np.sum(Q * logp)
 
         else:
             # Bias: This term is usually zero for proper losses, but may be
             # nonzero for RC or CC weak losses
             # Note, also, that the bias could be computed out of this function.
             bias = np.sum(1 - np.sum(T, axis=1))
-            L = -np.sum(T*logp) + bias + self.params['alpha']*np.sum(w**2)/2
+            L = (- np.sum(T * logp) + bias
+                 + self.params['alpha'] * np.sum(w**2) / 2)
             # L = -np.sum(T*logp)
 
-        if L < 0:
-            warnings.warn(("Negative log-loss (L={}): use larger parameter " +
-                           "alpha)").format(L))
+        # if L < 0:
+        #    warnings.warn(f"Negative log-loss (L={L}): use larger alpha)")
+
+        return L
+
+    def LBLloss(self, w, X, T):
+        """
+        Compute a (possibly regularized) log loss (cross-entropy) for samples
+        in X, virtual labels in T and parameters w. The regularization
+        parameter is taken from attribute self.params['alpha']
+        It assumes a multi-class softmax classifier.
+        This method implements different log-losses, that are specified in
+        the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+            'EM'  :Expected Log likelihood (i.e. the expected value of the
+                   complete data log-likelihood after the E-step). It assumes
+                   that a mixing matrix is known and contained in
+                   self.params['M']
+
+        Args:
+            :w:  1-D nympy array. A flattened version of the weight matrix of
+                 the multiclass softmax. This 1-D arrangement is required by
+                 the scipy optimizer that will use this method.
+            :X:  Input data. An (NxD) matrix of N samples with dimension D
+            :T:  Target class. An (NxC) array of target vectors.
+                 The meaning and format of each target vector t depends
+                 on the selected log-loss version:
+                 - 'OSL': t is a binary vector.
+                 - 'VLL': t is a virtual label vector
+                 - 'EM': t is an integer index of a weak label
+        Returns:
+            :L:  Log-loss
+        """
+
+        k2 = self.params['k'] / 2
+        alpha = self.params['alpha']
+        beta = self.params['beta']
+
+        n_dim = X.shape[1]
+        W2 = w.reshape((n_dim, self.n_classes))
+        V = X @ W2
+        # Forze each v_i to lie in the orthogonal subspace:
+        # V = X W - (X·W·1) 1'   (where 1 is a c-ones vector)
+        V -= np.mean(V, axis=1, keepdims=True)
+        logp = self.logsoftmax(V)
+
+        if self.method == 'OSL':
+            p = np.exp(logp)
+            D = self.hardmax(T * p)
+            L = -np.sum(D * logp)
+
+        else:
+            # Bias: This term is usually zero for proper losses, but may be
+            # nonzero for RC or CC weak losses
+            # Note, also, that the bias could be computed out of this function.
+            bias = 0     # np.sum(1 - np.sum(T, axis=1))
+            L = (- np.sum(T * logp) + bias + alpha * np.sum(w**2) / 2
+                 + k2 * np.sum(np.abs(V)**beta))
+
+        # if L < 0:
+        #     warnings.warn(f"Negative log-loss (L={L}): use larger alpha)")
 
         return L
 
@@ -223,6 +305,10 @@ class WeakLogisticRegression(object):
         if self.params['loss'] == 'CE':
 
             L = self.logLoss(w, X, T)
+
+        elif self.params['loss'] == 'LBL':
+
+            L = self.LBLloss(w, X, T)
 
         elif self.params['loss'] == 'square':
 
@@ -235,7 +321,6 @@ class WeakLogisticRegression(object):
         return L
 
     def gradSquareLoss(self, w, X, T):
-
         """
         Compute the gradient of the square loss (Brier score) for
         samples in X, virtual labels in T and parameters w.
@@ -266,7 +351,7 @@ class WeakLogisticRegression(object):
         p = self.softmax(np.dot(X, W2))
 
         if self.method == 'OSL':
-            D = self.hardmax(T*p)
+            D = self.hardmax(T * p)
             Q = (p - D) * p
         else:
             Q = (p - T) * p
@@ -274,10 +359,9 @@ class WeakLogisticRegression(object):
         sumQ = np.sum(Q, axis=1, keepdims=True)
         G = np.dot(X.T, Q - sumQ * p)
 
-        return G.reshape((n_dim*self.n_classes))
+        return G.reshape((n_dim * self.n_classes))
 
     def gradLogLoss(self, w, X, T):
-
         """
         Compute the gradient of the regularized log loss (cross-entropy) for
         samples in X, virtual labels in T and parameters w.
@@ -295,19 +379,24 @@ class WeakLogisticRegression(object):
                    that a mixing matrix is known and contained in
                    self.params['M']
 
-        Args:
-            :w:  1-D nympy array. A flattened version of the weight matrix of
-                 the multiclass softmax. This 1-D arrangement is required by
-                 the scipy optimizer that will use this method.
-                :X:  Input data. An (NxD) matrix of N samples with dimension D
-                :T:  Target class. An (NxC) array of target vectors.
-                     The meaning and format of each target vector t depends on
-                     the selected log-loss version:
-                     - 'OSL': t is a binary vector.
-                     - 'VLL': t is a virtual label vector
-                     - 'EM': t is an integer index of a weak label
-            Returns:
-                :G:  Gradient of the Log-loss
+        Parameters
+        ----------
+        w: 1-D nympy array
+            A flattened version of the weight matrix of the multiclass softmax.
+            This 1-D arrangement is required by the scipy optimizer that will
+            use this method.
+        X:  numpy.ndarray (N x D)
+            Input data. An (NxD) matrix of N samples with dimension D
+        T:  Target class. An (NxC) array of target vectors.
+            The meaning and format of each target vector t depends on the
+            selected log-loss version:
+            - 'OSL': t is a binary vector.
+            - 'VLL': t is a virtual label vector
+            - 'EM': t is an integer index of a weak label
+
+        Returns
+        -------
+        G:  Gradient of the Log-loss
         """
 
         n_dim = X.shape[1]
@@ -315,7 +404,7 @@ class WeakLogisticRegression(object):
         p = self.softmax(np.dot(X, W2))
 
         if self.method == 'OSL':
-            D = self.hardmax(T*p)
+            D = self.hardmax(T * p)
             G = np.dot(X.T, p - D)
 
         elif self.method == 'EM':
@@ -326,20 +415,91 @@ class WeakLogisticRegression(object):
 
         else:
             bias = np.sum(T, axis=1, keepdims=True)
-            G = np.dot(X.T, p*bias - T) - self.params['alpha']*W2
+            G = np.dot(X.T, p * bias - T) - self.params['alpha'] * W2
             # G = np.dot(X.T, p - T)
 
-        return G.reshape((n_dim*self.n_classes))
+        return G.reshape((n_dim * self.n_classes))
+
+    def gradLBL(self, w, X, T):
+        """
+        Compute the gradient of the regularized log loss (cross-entropy) for
+        samples in X, virtual labels in T and parameters w.
+        The regularization parameter is taken from the object attribute
+        self.params['alpha']
+        It assumes a multi-class softmax classifier.
+        This method implements gradients for two different log-losses, that are
+        specified in the object's attribute self.method:
+            'OSL' :Optimistic Superset Loss. It assumes that the true label is
+                   the nonzero weak label with highest posterior probability
+                   given the model.
+            'VLL' :Virtual Labels Loss.
+            'EM'  :Expected Log likelihood (i.e. the expected value of the
+                   complete data log-likelihood after the E-step). It assumes
+                   that a mixing matrix is known and contained in
+                   self.params['M']
+
+        Parameters
+        ----------
+        w: 1-D nympy array
+            A flattened version of the weight matrix of the multiclass softmax.
+            This 1-D arrangement is required by the scipy optimizer that will
+            use this method.
+        X:  numpy.ndarray (N x D)
+            Input data. An (NxD) matrix of N samples with dimension D
+        T:  Target class. An (NxC) array of target vectors.
+            The meaning and format of each target vector t depends on the
+            selected log-loss version:
+            - 'OSL': t is a binary vector.
+            - 'VLL': t is a virtual label vector
+            - 'EM': t is an integer index of a weak label
+
+        Returns
+        -------
+        G:  Gradient of the Log-loss
+        """
+
+        k2 = self.params['k'] / 2
+        alpha = self.params['alpha']
+        beta = self.params['beta']
+
+        n_dim = X.shape[1]
+        W2 = w.reshape((n_dim, self.n_classes))
+        V = X @ W2
+        # Forze each row in V to lie in the orthogonal subspace:
+        # V = X W - (X·W·1) 1'   (where 1 is a c-ones vector)
+        V -= np.mean(V, axis=1, keepdims=True)
+
+        p = self.softmax(V)
+
+        # Correction term
+        delta = np.abs(V)**(beta - 1) * np.sign(V)
+        delta -= np.sum(delta, axis=1, keepdims=True) / self.n_classes
+        delta = k2 * beta * delta
+
+        if self.method == 'OSL':
+            D = self.hardmax(T * p)
+            G = X.T @ (p - D)
+
+        else:
+            bias = 1  # np.sum(T, axis=1, keepdims=True)
+            G = X.T @ (p * bias - T) - alpha * W2
+            G += X.T @ delta
+
+        return G.reshape((n_dim * self.n_classes))
 
     def gradLoss(self, w, X, T):
 
         if self.params['loss'] == 'CE':
-
+            # Cross entropy (log-loss)
             g = self.gradLogLoss(w, X, T)
 
         elif self.params['loss'] == 'square':
-
+            # Square error
             g = self.gradSquareLoss(w, X, T)
+
+        elif self.params['loss'] == 'LBL':
+            # Lower-Bounded Log-loss.
+            g = self.gradLBL(w, X, T)
 
         else:
 
@@ -355,16 +515,13 @@ class WeakLogisticRegression(object):
         # Initialize variables
         n_dim = X.shape[1]
         W = np.random.randn(n_dim, self.n_classes)
-        w1 = W.reshape((n_dim*self.n_classes))
+        w1 = W.reshape((n_dim * self.n_classes))
 
         # Running the gradient descent algorithm
         for n in range(self.params['n_it']):
-
-            w1 = W.reshape((n_dim*self.n_classes))
-
+            w1 = W.reshape((n_dim * self.n_classes))
             G = self.gradLoss(w1, X, T).reshape((n_dim, self.n_classes))
-
-            W -= self.params['rho']*G
+            W -= self.params['rho'] * G
 
         return W
 
@@ -373,11 +530,14 @@ class WeakLogisticRegression(object):
         Fits a logistic regression model to instances in X given the labels in
         Y
 
-        Args:
-            :X :Input data, numpy array of shape[n_samples, n_features]
-            :Y :Target for X, with shape [n_samples].
-                Each target can be a index in [0,..., self.n_classes-1] or
-                a binary vector with dimension self.n_classes
+        Parameters
+        ----------
+        X: numpy.ndarray(n_samples, n_features)
+            Input data
+        Y: numpy.array(nsamples)
+            Target for X. Each target can be a index in
+            [0,..., self.n_classes-1] or a binary vector with dimension
+            self.n_classes
 
         Returns:
             :self
@@ -405,7 +565,7 @@ class WeakLogisticRegression(object):
         if self.optimizer == 'GD':
             self.W = self.gd(X, T)
         else:
-            w0 = 1*np.random.randn(X.shape[1]*self.n_classes)
+            w0 = 1 * np.random.randn(X.shape[1] * self.n_classes)
             res = sp.optimize.minimize(
                 self.loss, w0, args=(X, T), method=self.optimizer,
                 jac=self.gradLoss, hess=None, hessp=None, bounds=None,
