@@ -8,7 +8,6 @@
 
 import numpy as np
 import scipy as sp
-import warnings
 
 
 class WeakLogisticRegression(object):
@@ -17,7 +16,7 @@ class WeakLogisticRegression(object):
     """
 
     def __init__(self, n_classes=2, method="VLL", optimizer='GD',
-                 params={}, sound='off'):
+                 canonical_link=False, params={}, sound='off'):
         """
         Initializes a classifier object
 
@@ -34,6 +33,9 @@ class WeakLogisticRegression(object):
             Optimization method. If 'GD', a self implementation of stochastic
             gradient descent is used. Otherwise, a method from scipy.optimize
             is used.
+        canonical_link : booblean, optinal (default=False)
+            If True, the probabilistic predictions use the canonical link.
+            Otherwise, the logistic function is used.
         params : dict, optinal (default={})
             Parameters for the optimization algorithms.
             Available parameters are:
@@ -48,6 +50,7 @@ class WeakLogisticRegression(object):
         self.params = params
         self.method = method
         self.optimizer = optimizer
+        self.canonical_link = canonical_link
         self.n_classes = n_classes
         self.classes_ = list(range(n_classes))
 
@@ -225,13 +228,7 @@ class WeakLogisticRegression(object):
             L = -np.sum(Q * logp)
 
         else:
-            # Bias: This term is usually zero for proper losses, but may be
-            # nonzero for RC or CC weak losses
-            # Note, also, that the bias could be computed out of this function.
-            bias = np.sum(1 - np.sum(T, axis=1))
-            L = (- np.sum(T * logp) + bias
-                 + self.params['alpha'] * np.sum(w**2) / 2)
-            # L = -np.sum(T*logp)
+            L = - np.sum(T * logp) + self.params['alpha'] * np.sum(w**2) / 2
 
         # if L < 0:
         #    warnings.warn(f"Negative log-loss (L={L}): use larger alpha)")
@@ -280,6 +277,7 @@ class WeakLogisticRegression(object):
         # Forze each v_i to lie in the orthogonal subspace:
         # V = X W - (X·W·1) 1'   (where 1 is a c-ones vector)
         V -= np.mean(V, axis=1, keepdims=True)
+
         logp = self.logsoftmax(V)
 
         if self.method == 'OSL':
@@ -288,11 +286,7 @@ class WeakLogisticRegression(object):
             L = -np.sum(D * logp)
 
         else:
-            # Bias: This term is usually zero for proper losses, but may be
-            # nonzero for RC or CC weak losses
-            # Note, also, that the bias could be computed out of this function.
-            bias = 0     # np.sum(1 - np.sum(T, axis=1))
-            L = (- np.sum(T * logp) + bias + alpha * np.sum(w**2) / 2
+            L = (- np.sum(T * logp) + alpha * np.sum(w**2) / 2
                  + k2 * np.sum(np.abs(V)**beta))
 
         # if L < 0:
@@ -414,8 +408,8 @@ class WeakLogisticRegression(object):
             G = np.dot(X.T, p - Q)
 
         else:
-            bias = np.sum(T, axis=1, keepdims=True)
-            G = np.dot(X.T, p * bias - T) - self.params['alpha'] * W2
+            sumT = np.sum(T, axis=1, keepdims=True)
+            G = np.dot(X.T, p * sumT - T) - self.params['alpha'] * W2
             # G = np.dot(X.T, p - T)
 
         return G.reshape((n_dim * self.n_classes))
@@ -481,8 +475,8 @@ class WeakLogisticRegression(object):
             G = X.T @ (p - D)
 
         else:
-            bias = 1  # np.sum(T, axis=1, keepdims=True)
-            G = X.T @ (p * bias - T) - alpha * W2
+            sumT = np.sum(T, axis=1, keepdims=True)
+            G = X.T @ (p * sumT - T) - alpha * W2
             G += X.T @ delta
 
         return G.reshape((n_dim * self.n_classes))
@@ -580,28 +574,58 @@ class WeakLogisticRegression(object):
             #     print "{0}-{1}: Status {2}. {3}. {4}".format(
             #         self.method, self.optimizer, res.status, res.success,
             #         res.message)
-
             # wtest = res.x
             # error = sp.optimize.check_grad(
             #     self.logLoss, self.gradLogLoss, wtest, X, T)
             # print "Check-grad error = {0}".format(error)
 
-        return self    # w, nll_tr
+        return     # self    # w, nll_tr
 
     def predict(self, X):
 
-        # Compute posterior probability of class 1 for weights w.
-        p = self.softmax(np.dot(X, self.W))
-
         # Class
-        D = np.argmax(p, axis=1)
+        D = np.argmax(X @ self.W, axis=1)
 
         return D  # p, D
 
     def predict_proba(self, X):
 
-        # Compute posterior probability of class 1 for weights w.
-        p = (np.c_[self.softmax(np.dot(X, self.W))])
+        # Linear term
+        V = X @ self.W
+
+        if self.canonical_link:
+            if self.params['loss'] == 'CE':
+                # Compute posterior class probabilities for weights w.
+                p = self.softmax(V)
+
+            elif self.params['loss'] == 'LBL':
+
+                k2 = self.params['k'] / 2
+                alpha = self.params['alpha']
+                beta = self.params['beta']
+
+                # Compute posterior class probabilities for weights w.
+                # Forze each row in V to lie in the orthogonal subspace:
+                # V = X W - (X·W·1) 1'   (where 1 is a c-ones vector)
+                V -= np.mean(V, axis=1, keepdims=True)
+                p = self.softmax(V)
+
+                # Correction term
+                delta = np.abs(V)**(beta - 1) * np.sign(V)
+                delta -= np.sum(delta, axis=1, keepdims=True) / self.n_classes
+                delta = k2 * beta * delta
+                p = p + delta
+
+            elif self.params['loss'] == 'square':
+                exit("ERROR: No probabilistic predictions have been"
+                     "implemented for the square error and canonical link")
+
+        else:
+            # Compute posterior class probabilities for weights w.
+            p = self.softmax(V)
+            # Old version. I have removed np.c_. Not sure if it is needed
+            # p = (np.c_[self.softmax(X @ self.W)])
+
         return p
 
     def get_params(self, deep=True):
