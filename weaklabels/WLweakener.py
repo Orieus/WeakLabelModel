@@ -743,7 +743,7 @@ class WLmodel(object):
         # Compute the wl prior estimate
         p_reg = self.M @ v_eta.value
 
-        return p_reg, v_eta.value
+        return p_reg   # , v_eta.value
 
     def virtual_labels(self, z, method, p=None):
         """
@@ -819,16 +819,15 @@ class WLmodel(object):
 
         elif method == 'M-conv':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, optimize=False,
-                                           convex=True)
+            v = self.virtual_labels_from_M(z, optimize=False, convex=True)
         elif method == 'M-opt':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, optimize=True,
-                                           convex=False)
+            v = self.virtual_labels_from_M(
+                z, p=p, optimize=True, convex=False)
         elif method == 'M-opt-conv':
             # Compute the virtual label matrix
-            v = self.virtual_labels_from_M(z, self.M, optimize=True,
-                                           convex=True)
+            v = self.virtual_labels_from_M(
+                z, p=p, optimize=True, convex=True)
         else:
             raise ValueError(
                 f"Unknown method {method} to create virtual labels")
