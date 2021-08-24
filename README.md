@@ -32,10 +32,10 @@ See example of a call inside one of the add_queue scripts
 
 ### Unittest
 
-Run the unit tests running the following script from a terminal
+Run the unit tests with the make command
 
 ```bash
-./runtests.sh
+make test
 ```
 
 ### Run Jupyter Notebooks
@@ -125,22 +125,10 @@ Logistic Regression score = 0.9733333333333334
 Upload to PyPi
 --------------
 
-Create the files to distribute
+Test and upload the code with the make command
 
 ```
-python3.8 setup.py sdist
-```
-
-Ensure twine is installed
-
-```
-pip install twine
-```
-
-Upload the distribution files
-
-```
-twine upload dist/*
+make pypi
 ```
 
 It may require user and password if these are not set in your home directory a
@@ -150,22 +138,6 @@ file  __.pypirc__
 [pypi]
 username = __token__
 password = pypi-yourtoken
-```
-
-Check the README file for Pypi
-------------------------------
-
-In order to check that the readme file is compliant with Pypi standards,
-install the following Python package
-
-```
-pip install readme-renderer
-```
-
-and run the following command
-
-```
-twine check dist/*
 ```
 
 Contributors
