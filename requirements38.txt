@@ -6,6 +6,3 @@ openml
 ipdb
 matplotlib
 cvxpy
-ipykernel
-tensorflow
-keras

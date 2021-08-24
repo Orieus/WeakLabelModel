@@ -1,0 +1,16 @@
+codecov
+flake8
+mypy
+nbval
+numpydoc
+pylint
+pytest
+pytest-cov
+sphinx
+sphinx-gallery
+twine
+yapf
+restview
+sphinx-rtd-theme
+readme-renderer
+ipykernel
