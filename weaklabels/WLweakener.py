@@ -600,7 +600,7 @@ class WLmodel(object):
             as many rows as the size of self.weak_classes
         """
 
-        nc, nw = M.shape
+        nw, nc = M.shape
 
         if nc != self.c or nw != len(self.weak_classes):
             raise ValueError(
