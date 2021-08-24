@@ -4,13 +4,13 @@
 [![pypi][pypi:b]][pypi]
 [![codecov][codecov:b]][codecov]
 
-[ci]: https://github.com/Orieus//actions/workflows/ci.yml
+[ci]: https://github.com/Orieus/WeakLabelModel/actions/workflows/ci.yml
 [ci:b]: https://github.com/Orieus/WeakLabelModel/workflows/CI/badge.svg
 [license]: https://github.com/Orieus/WeakLabelModel/blob/master/LICENSE.txt
 [license:b]: https://img.shields.io/github/license/Orieus/WeakLabelModel.svg
 [python:b]: https://img.shields.io/badge/python-3.8-blue
-[pypi]: https://badge.fury.io/py/WeakLabelModel
-[pypi:b]: https://badge.fury.io/py/WeakLabelModel.svg
+[pypi]: https://badge.fury.io/py/weaklabels
+[pypi:b]: https://badge.fury.io/py/weaklabels.svg
 [codecov]: https://codecov.io/gh/Orieus/WeakLabelModel
 [codecov:b]: https://codecov.io/gh/Orieus/WeakLabelModel/branch/master/graph/badge.svg?token=AYMZPLELT3
 
