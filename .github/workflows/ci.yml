@@ -22,7 +22,7 @@ jobs:
           pip install pytest-cov
           pip install -r requirements38.txt
       - name: Run tests with pytest
-        run: pytest --cov-report=xml  # --cov=weaklabels weaklabels
+        run: pytest --cov-report=xml  --cov=weaklabels weaklabels
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
