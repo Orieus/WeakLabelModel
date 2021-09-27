@@ -102,7 +102,7 @@ class TestWLweakener(unittest.TestCase):
 
         y = np.random.randint(low=0, high=n_classes, size=200)
         # Convert y into a binary matrix
-        y_bin = label_binarize(y, list(range(n_classes)))
+        y_bin = label_binarize(y, classes=list(range(n_classes)))
         y_bin_float = y_bin.astype(float)
 
         # TODO This creates a NaN error: 'quasi-IPL', 'IPL'
