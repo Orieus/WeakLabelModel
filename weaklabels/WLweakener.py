@@ -5,7 +5,7 @@
 import numpy as np
 from collections import Counter
 # from numpy import binary_repr
-from sklearn.preprocessing import label_binarize
+# from sklearn.preprocessing import label_binarize
 
 # import sklearn.linear_model as sklm
 import cvxpy
@@ -213,6 +213,7 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
              + np.ones((c, c)) * (1 - alpha) / (c - 1))
 
     elif model_class == 'complementary':
+
         M = (1 - np.eye(c)) / (c - 1)
 
     elif model_class == 'random_noise':
@@ -296,13 +297,18 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
             M[z, :] = z_bin * (beta**(modz - 1) * (1 - beta)**(c - modz))
 
         # Remove zero rows
-        M = M[1: d - 1, :]
+        # WARNING: This was used in older versions: rows 0 and d were removed
+        #     because they have zero probability.
+        #     Now, to remove a row from M, it is necessary to remove the
+        #     corresponding weak classes in self.weak_classes. To do so,
+        #     self.remove_zero_rows() must be used.
+        # M = M[1: d - 1, :]
 
-        # Columns in M should sum up to 1
+        # Columns in M should sum up to 1. This is likely not required
         M = M / np.sum(M, axis=0)
 
     else:
-        raise ValueError("Unknown model to compute M: {}".format( model_class))
+        raise ValueError(f"Unknown model to compute M: {model_class}")
 
     return M
 
@@ -388,6 +394,7 @@ def generateM(c, model_class, alpha=0.2, beta=0.5):
              + np.ones((c, c)) * valpha / (c - 1))
 
     elif model_class == 'complementary':
+
         M = (1 - np.eye(c)) / (c - 1)
 
     elif model_class == 'random_noise':
@@ -543,7 +550,7 @@ class WLmodel(object):
                     the probability of any weak label depends on the number of
                     false labels only.
 
-        weak_classes : list or str {'one-hot', 'non-uniform', 'all'}
+        weak_classes : list or str {'one-hot', 'non-uniform', 'all'} or None
             Defines all possible weak classes. Each weak class will be
             represented by an integer whose binary representation encodes
             the classes that contains.
@@ -554,10 +561,11 @@ class WLmodel(object):
             - If 'one-hot': each class contains only one class. For c=4, weak
                 classes are '0001', '0010', '0100' and '1000', i.e.: 1, 2, 4
                 and 8
-            - If 'mixed': each weak class contains at least one class but not
-                all of them, i.e. cases '00...0' and '11...1' are excluded
+            - If 'non-uniform': each weak class contains at least one class but
+                not all of them, i.e. cases '00...0' and '11...1' are excluded
             - If 'all': the weak class migh containg an abitrary number of
                 classes.
+            - If None (defaul) the weak_classes are inferred from model_class
         """
 
         # One of model_class or weak labels  must be provided, but not both

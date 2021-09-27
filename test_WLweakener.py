@@ -5,9 +5,8 @@ from numpy.testing import assert_equal
 from numpy.testing import assert_array_equal
 from numpy.testing import assert_array_almost_equal
 
-# from weaklabels.WLweakener import (
-#     computeM, generateM, WLmodel, binarizeWeakLabels)
-from weaklabels.WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
+from weaklabels.WLweakener import (
+    computeM, generateM, WLmodel, binarizeWeakLabels)
 
 from sklearn.preprocessing import label_binarize
 
@@ -23,6 +22,7 @@ class TestWLweakener(unittest.TestCase):
         assert_array_equal(M, expected)
 
     def test_computeM(self):
+
         M = computeM(c=3, model_class='supervised')
         expected = np.array([[1, 0, 0],
                              [0, 1, 0],
@@ -44,16 +44,20 @@ class TestWLweakener(unittest.TestCase):
 
         M = computeM(c=2, model_class='quasi-IPL', beta=0.2)
         # TODO Check if this is the expected M
-        expected = np.array([[0., 1.],
-                             [1., 0.], ])
+        expected = np.array([[0., 0.],
+                             [0., 1.],
+                             [1., 0.],
+                             [0., 0.], ])
         assert_array_equal(M, expected)
 
         M = computeM(c=3, model_class='quasi-IPL', beta=0.0)
         # TODO Check if this is the expected M
-        expected = np.array([[0., 0., 1.],
+        expected = np.array([[0., 0., 0.],
+                             [0., 0., 1.],
                              [0., 1., 0.],
                              [0., 0., 0.],
                              [1., 0., 0.],
+                             [0., 0., 0.],
                              [0., 0., 0.],
                              [0., 0., 0.]])
         assert_array_equal(M, expected)
@@ -75,10 +79,9 @@ class TestWLweakener(unittest.TestCase):
         wm = WLmodel(c=c, model_class='supervised')
         M = wm.generateM()
         z = wm.generateWeak(y)
-        print("Aqui ha fallao")
 
         expected = np.array([8, 4, 2, 1])
-        assert_equal(z, expected)
+        assert_array_equal(z, expected)
 
     def test_binarizeWeakLabels(self):
         c = 4
