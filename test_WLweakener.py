@@ -158,7 +158,7 @@ class TestWLweakener(unittest.TestCase):
                   # This test fails because of a division by 0 in a matrix B
                   # full of zeros.
                   # (4, 'random_noise', 0.9, np.inf,
-                  #  np.array([[.1, .3, .3, .3],
+                  # np.array([[.1, .3, .3, .3],
                   #            [.3, .1, .3, .3],
                   #            [.3, .3, .1, .3],
                   #            [.3, .3, .3, .1]])),
