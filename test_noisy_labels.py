@@ -6,7 +6,8 @@ np.random.seed(0)
 
 c = 3
 y = np.array([0, 1, 2])
-y_bin = label_binarize(y, range(c))
+y_bin = label_binarize(y, classes=range(c))
+
 
 methods_M = ['IPL', 'noisy', 'quasi-IPL', 'random_noise', 'random_weak']
 shapes = {'IPL': (2**c, c), 'noisy': (c, c), 'quasi-IPL': (2**c, c),
