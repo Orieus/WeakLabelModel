@@ -7,7 +7,7 @@ from numpy.testing import assert_array_almost_equal
 
 # from weaklabels.WLweakener import (
 #     computeM, generateM, WLmodel, binarizeWeakLabels)
-from WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
+from weaklabels.WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
 
 from sklearn.preprocessing import label_binarize
 
