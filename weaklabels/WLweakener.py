@@ -31,8 +31,11 @@ def weak_to_index(z, method='supervised'):
 
     It returns the row from the corresponding mixing matrix M where the weak
     label must be. For a supervised method the mixing matrix is a diagonal
-    matrix withthe first row belonging to the first class and the last row
+    matrix with the first row belonging to the first class and the last row
     belonging to the last class.
+
+    For method=='complementary', the i-th row corresponds to the weak label
+    with only one zero, in position i.
 
     With an Mproper, IPL, quasiIPL methods the mixing matrix is assumed to be
     2**#classes, where the first row corresponds to a weak labeling with all
@@ -60,6 +63,8 @@ def weak_to_index(z, method='supervised'):
         # FIXME which of both is correct?
         index = np.argmax(z, axis=1)
         # index = c - np.argmax(z, axis=1) - 1
+    elif method in ['complementary']:
+        index = np.argmin(z, axis=1)
     else:
         # index = np.array(map(bin_array_to_dec, z.astype(int)))
         index = weak_to_decimal(z)
@@ -179,6 +184,8 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
             'noisy': For a noisy label case: the true label is observed with
                 probabiltity 1 - beta, otherwise one noisy label is taken at
                 random
+            'complementary': ALl labels are observed, unless one different from
+                the true class.
             'random_noise': All values of the mixing matrix are taken at random
                 from a uniform distribution. The matrix is normalized to be
                 left-stochastic
@@ -204,6 +211,9 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
 
         M = (np.eye(c) * (alpha - (1 - alpha) / (c - 1))
              + np.ones((c, c)) * (1 - alpha) / (c - 1))
+
+    elif model_class == 'complementary':
+        M = (1 - np.eye(c)) / (c - 1)
 
     elif model_class == 'random_noise':
 
@@ -320,12 +330,14 @@ def generateM(c, model_class, alpha=0.2, beta=0.5):
             If array-like, this probability is class-dependent.
         - 'IPL3': Ignored
         - 'quasi-IPL': Ignored.
+        - 'complementary': Ignored
 
     beta : float (non-negative) or array-like, optional (default=0.5)
         Noise distribution parameter.
         The specific meaning of this parameter depends on the method:
         - 'supervised': Ignored.
         - 'noisy': Ignored
+        - 'complementary': Ignored
         - 'random_noise': Concentration parameter. The noisy label
             probabilities are generated stochastically according to a
             Dirichlet distribution with parameters beta. According to this:
@@ -374,6 +386,9 @@ def generateM(c, model_class, alpha=0.2, beta=0.5):
         valpha = np.array(alpha)
         M = (np.eye(c) * (1 - valpha - valpha / (c - 1))
              + np.ones((c, c)) * valpha / (c - 1))
+
+    elif model_class == 'complementary':
+        M = (1 - np.eye(c)) / (c - 1)
 
     elif model_class == 'random_noise':
         # Diagonal component (no-noise probabilities)
@@ -510,6 +525,8 @@ class WLmodel(object):
                     The true label is observed with a given probability,
                     otherwise one noisy label is taken at random. Parameter
                     alpha is deterministic.
+            - 'complementary': The weak label contains all classes, except for
+                    one selected at random fron the false classes
             - 'random_noise': Noisy labels with stochastic parameters.
                     Same as 'noixy', but the parameters of the noise
                     distribution are generated at random.
@@ -563,6 +580,8 @@ class WLmodel(object):
             # The list of weak_classes will be inferred from the model_class
             if model_class in ['supervised', 'noisy', 'random_noise']:
                 self.weak_classes = 2**np.arange(c - 1, -1, -1)
+            elif model_class in ['complementary']:
+                self.weak_classes = 2**c - 1 - 2**np.arange(c - 1, -1, -1)
             elif model_class in ['random_weak', 'IPL', 'IPL3', 'quasi-IPL']:
                 self.weak_classes = np.arange(2**c)
             # I introduce this (quasi-IPL' in the one above to be consistent
@@ -638,7 +657,7 @@ class WLmodel(object):
 
         Notes
         -----
-        The meaning of the input parameters depend on the model class 
+        The meaning of the input parameters depend on the model class
         (in self.model_class)
 
         Returns
@@ -685,7 +704,7 @@ class WLmodel(object):
         The estimation is stated as an optimization problem. If n is the
         vector of counts of the weak labels in z, the co
 
-            p_reg = arg min_p l(n, p), 
+            p_reg = arg min_p l(n, p),
             s.t.  p = M eta, and eta in Pc, where Pc is the simplex.
 
         l(n, p) is the loss function.
@@ -721,7 +740,7 @@ class WLmodel(object):
         # Resolution of the problem in eq (32) and (33)
         v_eta = cvxpy.Variable(self.c)
         if loss == 'cross_entropy':
-            lossf = -p_est @ cvxpy.log(self.M @ v_eta) 
+            lossf = -p_est @ cvxpy.log(self.M @ v_eta)
         elif loss == 'square_error':
             p_est = p_est / np.sum(p_est)
             lossf = cvxpy.sum_squares(p_est - self.M @ v_eta)
