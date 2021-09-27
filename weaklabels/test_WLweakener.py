@@ -5,7 +5,9 @@ from numpy.testing import assert_equal
 from numpy.testing import assert_array_equal
 from numpy.testing import assert_array_almost_equal
 
-from weaklabels.WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
+# from weaklabels.WLweakener import (
+#     computeM, generateM, WLmodel, binarizeWeakLabels)
+from WLweakener import (computeM, generateM, WLmodel, binarizeWeakLabels)
 
 from sklearn.preprocessing import label_binarize
 
@@ -56,7 +58,7 @@ class TestWLweakener(unittest.TestCase):
                              [0., 0., 0.]])
         assert_array_equal(M, expected)
 
-    #def test_computeVirtual(self):
+    # def test_computeVirtual(self):
     #    z = np.array([0, 1, 2, 3])
     #    wm = WLmodel(c=2, model_class='IPL')
     #    z_bin = virtual_labels(z, method='IPL', p=None):
@@ -70,9 +72,10 @@ class TestWLweakener(unittest.TestCase):
     def test_generateWeak(self):
         c = 4
         y = np.array([0, 1, 2, 3])
-        wm = WLmodel(c=4, model_class='supervised')
+        wm = WLmodel(c=c, model_class='supervised')
         M = wm.generateM()
         z = wm.generateWeak(y)
+        print("Aqui ha fallao")
 
         expected = np.array([8, 4, 2, 1])
         assert_equal(z, expected)
@@ -85,7 +88,7 @@ class TestWLweakener(unittest.TestCase):
                              [0, 1, 0, 0],
                              [0, 0, 1, 0],
                              [0, 0, 0, 1],
-                            ])
+                             ])
         assert_equal(z_bin, expected)
 
     def test_not_mixing_virtual(self):
@@ -103,8 +106,6 @@ class TestWLweakener(unittest.TestCase):
         for mixing_method in ['supervised', 'noisy', 'random_noise',
                               'random_weak']:
             # Generate weak labels
-
-
             wm = WLmodel(c=n_classes, model_class=mixing_method)
             M = wm.generateM(alpha=alpha, beta=beta)
             z = wm.generateWeak(y)
@@ -113,7 +114,8 @@ class TestWLweakener(unittest.TestCase):
             np.testing.assert_equal(y_bin_float, z_bin)
 
             # Compute the virtual labels
-            # TODO Should these pass the test? 'known-M-opt', 'known-M-opt-conv'
+            # TODO Should these pass the test? 'known-M-opt',
+            #                                  'known-M-opt-conv'
             # v_methods = ['IPL', 'quasi-IPL', 'known-M-pseudo']
             # for v_method in v_methods:
             #     virtual = computeVirtual(z, n_classes, method=v_method, M=M)
@@ -134,6 +136,11 @@ class TestWLweakener(unittest.TestCase):
                              [.3, .1, .3, .3],
                              [.3, .3, .1, .3],
                              [.3, .3, .3, .1]])),
+                  (4, 'complementary', None, None,
+                   np.array([[0, 1 / 3, 1 / 3, 1 / 3],
+                             [1 / 3, 0, 1 / 3, 1 / 3],
+                             [1 / 3, 1 / 3, 0, 1 / 3],
+                             [1 / 3, 1 / 3, 1 / 3, 0]])),
                   (2, 'quasi-IPL', 0.8, 0.2,
                    np.array([[0., 0.],
                              [0., 1.],
@@ -156,31 +163,30 @@ class TestWLweakener(unittest.TestCase):
                   #            [.3, .3, .1, .3],
                   #            [.3, .3, .3, .1]])),
                   # This test fails, find reason
-                  #(4, 'random_weak', 0.9, np.inf,
+                  # (4, 'random_weak', 0.9, np.inf,
                   # np.array([[.1, .3, .3, .3],
                   #           [.3, .1, .3, .3],
                   #           [.3, .3, .1, .3],
                   #           [.3, .3, .3, .1]])),
-                 )
+                  )
         for c, m, a, b, expected in params:
             M = generateM(c=c, model_class=m, alpha=a, beta=b)
-            assert_array_almost_equal(M, expected,
-                                      err_msg=('c={}, ' +
-                                               'method={}, ' +
-                                               'alpha={}, ' +
-                                               'beta={}').format(c, m, a, b))
-
+            assert_array_almost_equal(
+                M, expected, err_msg=(f'c={c}, method={m}, '
+                                      f'alpha={a}, beta={b}'))
 
     def test_generateM_sum_columns(self):
         params = ((3, 'noisy', [0.1, 0.2, 0.3], None),
+                  (4, 'complementary', None, None),
                   (3, 'random_noise', [0.1, 0.2, 0.3], [0.2, 0.3, 0.4]),
                   (3, 'random_weak', [0.1, 0.2, 0.3], 0.2),
                   (3, 'IPL', 0, [0.1, 0.2, 0.3]),
                   (3, 'IPL3', 0, [0.1, 0.2, 0.3]),
                   (3, 'quasi-IPL', [0.9, 0.9, 0.9, 0.9], 0.1),
-                 )
+                  )
 
         for c, method, alpha, beta in params:
+            print(f"Method = {method}")
             M = generateM(c, model_class=method, alpha=alpha, beta=beta)
             column_sum = np.sum(M, axis=0)
             expected = np.ones(c)
