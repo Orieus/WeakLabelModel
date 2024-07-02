@@ -6,7 +6,6 @@ import numpy as np
 from collections import Counter
 # from numpy import binary_repr
 # from sklearn.preprocessing import label_binarize
-
 # import sklearn.linear_model as sklm
 import cvxpy
 import copy
@@ -60,9 +59,7 @@ def weak_to_index(z, method='supervised'):
 
     # c = z.shape[1]
     if method in ['supervised', 'noisy', 'random_noise']:
-        # FIXME which of both is correct?
         index = np.argmax(z, axis=1)
-        # index = c - np.argmax(z, axis=1) - 1
     elif method in ['complementary']:
         index = np.argmin(z, axis=1)
     else:
@@ -202,6 +199,13 @@ def computeM(c, model_class, alpha=0.5, beta=0.5, gamma=0.5):
     Returns
     -------
     M : array-like, shape = (n_classes, n_classes)
+
+    Notes
+    -----
+    This method is deprecated, and generateM is preferred.
+    Note that alpha and beta parameters may have different (and even opposed)
+    meanings in computeM and generateM. Thus, migration from computeM to
+    generateM migh need some reparameterization.
     """
     if model_class == 'supervised':
 
@@ -601,6 +605,7 @@ class WLmodel(object):
         elif weak_classes == 'one-hot':
             self.weak_classes = 2**np.arange(c - 1, -1, -1)
         elif weak_classes == 'non-uniform':
+            # Weak classes "all zeros" and "all ones" are excluded
             self.weak_classes = np.arange(1, 2**c - 1)
         elif weak_classes == 'all':
             self.weak_classes = np.arange(2**c)

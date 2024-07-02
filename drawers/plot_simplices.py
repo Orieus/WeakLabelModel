@@ -8,8 +8,8 @@ import copy
 
 # WARNING: This may be needed to run on some versions of macOS. Uncomment if
 #          necessary
-# import matplotlib
-# matplotlib.use('TkAgg')
+# import matplotlib
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -382,8 +382,9 @@ def scatter_probs(eta, ax2=None, fs=12):
 
     return ax2
 
-def compute_draw_simplices(D_names, tags, eta, vmax=None, R=None, M=None, N=300,
-                           fs=12):
+
+def compute_draw_simplices(D_names, tags, eta, vmax=None, R=None, M=None,
+                           N=300, fs=12):
     """
     Computes and draws a bunch of discrepancy maps over the 3-class probability
     simplex
@@ -463,9 +464,9 @@ def main():
 
     # Parameters
     eta = np.array([0.35, 0.2, 0.45])       # Location of the minimum
+    eta = np.array([0.8, 0.1, 0.1])       # Location of the minimum
     loss_names = ['square', 'log', 'DD']    # 'square', 'log', 'l01' or 'DD'
     tags = ['Brier', 'CE', 'OSL']
-    n_loss = len(loss_names)
 
     # Build a reconstruction matrix
     V = np.array([[1, 0, 0, 0.0, 0.0, 0],
@@ -480,10 +481,6 @@ def main():
     R = U.T @ np.linalg.inv(V)
 
     # Transition matrix
-    #    001 010 100 011 101 110
-    # M = np.array([[0.5, 0,   0,   0.4, 0.1, 0],
-    #               [0,   0.5, 0,   0.3, 0,   0.2],
-    #               [0,   0,   0.6, 0,   0.2, 0.2]]).T
     M = np.array([[0.6, 0.0, 0.0, 0.2, 0.2, 0],
                   [0.0, 0.8, 0.0, 0.1, 0.0, 0.1],
                   [0.0, 0.0, 0.4, 0.0, 0.3, 0.3]]).T
@@ -511,9 +508,8 @@ def main():
     vmax = [vmax_all[name] for name in loss_names]
     compute_draw_simplices(loss_names, tags, eta, vmax, R, M, N, fs)
 
-    # plt.show(block=False)
     plt.show(block=False)
-    breakpoint()
+    # breakpoint()
 
     fname = 'example.svg'
     plt.savefig(fname)
